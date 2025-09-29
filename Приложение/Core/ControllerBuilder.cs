@@ -12,6 +12,7 @@ public class ATMControllerBuilder {
     private CashDispenser? _cashDispenser;
     private IBankingService? _bankingService;
     private MenuHandler? _menuHandler;
+    private ReceiptPrinter? _receiptPrinter;
 
     public ATMControllerBuilder WithScreen(Screen screen) { _screen = screen; return this; }
     public ATMControllerBuilder WithKeypad(Keypad keypad) { _keypad = keypad; return this; }
@@ -19,10 +20,11 @@ public class ATMControllerBuilder {
     public ATMControllerBuilder WithCashDispenser(CashDispenser dispenser) { _cashDispenser = dispenser; return this; }
     public ATMControllerBuilder WithBankingService(IBankingService service) { _bankingService = service; return this; }
     public ATMControllerBuilder WithMenuHandler(MenuHandler menuHandler) { _menuHandler = menuHandler; return this; }
+    public ATMControllerBuilder WithReceiptPrinter(ReceiptPrinter printer) { _receiptPrinter = printer; return this; }
 
     public ATMController Build() {
         ValidateDependencies();
-        return new ATMController(_screen!, _keypad!, _cardReader!, _cashDispenser!, _bankingService!, _menuHandler!);
+        return new ATMController(_screen!, _keypad!, _cardReader!, _cashDispenser!, _bankingService!, _menuHandler!, _receiptPrinter!);
     }
 
     private void ValidateDependencies() {

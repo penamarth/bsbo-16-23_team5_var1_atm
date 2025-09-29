@@ -1,0 +1,47 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+skinparam usecase {
+  BackgroundColor White
+  BorderColor Black
+}
+
+actor "Customer" as Client
+actor "Banking System" as Bank
+
+rectangle "ATM" {
+  usecase "Authenticate" as UC_Auth
+  usecase "Check Balance" as UC_Balance
+  usecase "Withdraw Cash" as UC_Withdraw
+  usecase "Print Receipt" as UC_Receipt
+  usecase "Check Limits" as UC_Limits
+  usecase "Check Cash Availability" as UC_CashLevel
+}
+
+Client --> UC_Balance
+Client --> UC_Withdraw
+Client ..> UC_Receipt : <<extend>> on request
+
+UC_Balance .> UC_Auth : <<include>>
+UC_Withdraw .> UC_Auth : <<include>>
+UC_Withdraw .> UC_Limits : <<include>>
+UC_Withdraw .> UC_CashLevel : <<include>>
+
+UC_Auth --> Bank : validate PIN/card
+UC_Balance --> Bank : get balance
+UC_Withdraw --> Bank : debit funds
+
+note right of UC_Limits
+  BR-LIMIT-01: do not exceed balance
+  BR-LIMIT-02: daily withdrawal limit
+end note
+
+note right of UC_CashLevel
+  BR-ATM-01: enough banknotes in ATM
+end note
+
+note bottom of UC_Auth
+  BR-AUTH-01/02: up to 3 attempts, then block
+end note
+
+@enduml 

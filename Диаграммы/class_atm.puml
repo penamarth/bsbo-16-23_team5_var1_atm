@@ -1,0 +1,71 @@
+@startuml
+skinparam packageStyle rectangle
+skinparam classBackgroundColor White
+skinparam classBorderColor Black
+
+package "Common" {
+  class Logger <<static>>
+  enum LogLevel
+}
+
+package "Models" {
+  class CardData
+  class Pin
+  class AccountId
+}
+
+package "UI" {
+  class Screen
+  class Keypad
+  class MenuHandler
+  enum UserAction
+}
+
+package "Hardware" {
+  class CardReader
+  class CashDispenser
+  class ReceiptPrinter
+}
+
+package "Services.Api" {
+  interface IBankingService {
+    +Authenticate(card: CardData, pin: Pin) : (bool, AccountId?)
+    +GetBalance(account: AccountId) : decimal
+    +ExecuteWithdrawal(account: AccountId, amount: decimal) : bool
+  }
+}
+
+package "Services.Impl" {
+  class BankingServiceClient
+}
+
+package "Core" {
+  class ATMController
+  class ATMControllerBuilder
+}
+
+BankingServiceClient -|> IBankingService
+
+ATMController o- Screen
+ATMController o- Keypad
+ATMController o- CardReader
+ATMController o- CashDispenser
+ATMController o- IBankingService
+ATMController o- MenuHandler
+ATMController o- ReceiptPrinter
+
+MenuHandler --> Screen
+MenuHandler --> Keypad
+
+ATMControllerBuilder ..> ATMController : builds
+
+CardReader ..> CardData
+Keypad ..> Pin
+
+Screen ..> Logger
+CashDispenser ..> Logger
+ReceiptPrinter ..> Logger
+ATMController ..> UserAction
+ATMController ..> AccountId
+
+@enduml 

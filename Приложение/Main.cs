@@ -10,7 +10,8 @@ Logger.Log("Запуск системы...");
 var screen = new Screen();
 var keypad = new Keypad();
 var cardReader = new CardReader();
-var cashDispenser = new CashDispenser();
+var cashDispenser = new CashDispenser(initialCash: 50000m);
+var receiptPrinter = new ReceiptPrinter();
 var bankingService = new BankingServiceClient();
 var menuHandler = new MenuHandler(screen, keypad);
 
@@ -20,7 +21,8 @@ var controller = new ATMControllerBuilder()
     .WithCardReader(cardReader)
     .WithCashDispenser(cashDispenser)
     .WithBankingService(bankingService)
-    .WithMenuHandler(menuHandler) 
+    .WithMenuHandler(menuHandler)
+    .WithReceiptPrinter(receiptPrinter)
     .Build();
 
 controller.Setup();

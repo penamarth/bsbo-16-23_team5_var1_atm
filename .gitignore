@@ -1,0 +1,7 @@
+/.dotnet/
+/Приложение/bin/
+/Приложение/obj/
+run_output.txt
+run_error.txt
+.DS_Store
+Thumbs.db

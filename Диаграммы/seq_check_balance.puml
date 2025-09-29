@@ -1,0 +1,49 @@
+@startuml
+skinparam defaultFontName "DejaVu Sans"
+autonumber
+
+actor "Customer" as Client
+participant Screen
+participant Keypad
+participant CardReader
+participant "ATMController" as Controller
+participant "IBankingService" as Bank
+participant "MenuHandler" as Menu
+participant "ReceiptPrinter" as Printer
+
+Client -> Screen : Show welcome
+Client -> CardReader : Insert card
+CardReader -> Controller : ReadCard(cardData)
+
+loop Up to 3 attempts (BR-AUTH-01)
+  Controller -> Keypad : Request PIN (timeout 60s)
+  alt Timeout (BR-SESSION-01)
+    Controller -> Screen : Session timeout
+    return
+  else Entered PIN
+    Keypad --> Controller : Pin
+    Controller -> Bank : Authenticate(cardData, pin)
+    alt Auth OK
+      break
+    else Auth failed
+      Controller -> Screen : Wrong PIN
+    end
+  end
+end
+
+alt Auth failed 3 times (BR-AUTH-02)
+  Controller -> Screen : Card blocked/retained
+  return
+else Authenticated
+  loop While session active
+    Controller -> Menu : GetUserActionChoice()
+    Menu --> Controller : UserAction.CheckBalance
+    Controller -> Bank : GetBalance(accountId)
+    Bank --> Controller : balance
+    Controller -> Screen : Show balance
+    opt Print receipt on request
+      Controller -> Printer : PrintReceipt("Balance: ...")
+    end
+  end
+end
+@enduml 
