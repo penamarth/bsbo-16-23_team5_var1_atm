@@ -1,0 +1,94 @@
+@startuml
+title Диаграмма последовательности: Снятие наличных
+
+actor "Клиент" as Client
+participant "ATMController" as Controller
+participant "Screen" as Screen
+participant "Keypad" as Keypad
+participant "BankingService" as Banking
+participant "CashDispenser" as Dispenser
+participant "ReceiptPrinter" as Printer
+
+Client -> Controller: selectWithdraw()
+activate Controller
+
+Controller -> Screen: displayMessage("Введите сумму")
+activate Screen
+Screen --> Controller:
+deactivate Screen
+
+Client -> Keypad: enterAmount(5000)
+activate Keypad
+Keypad --> Controller: amount = 5000
+deactivate Keypad
+
+Controller -> Controller: validateAmount(5000)
+
+Controller -> Dispenser: canDispense(5000)
+activate Dispenser
+Dispenser -> Dispenser: checkCashAvailability()
+Dispenser --> Controller: true
+deactivate Dispenser
+
+Controller -> Banking: executeWithdrawal(accountId, 5000)
+activate Banking
+
+Banking -> Banking: checkBalance(accountId)
+Banking -> Banking: checkDailyLimit(accountId, 5000)
+
+alt Достаточно средств и лимит не превышен
+    Banking -> Banking: deductAmount(accountId, 5000)
+    Banking -> Banking: updateDailyLimit(accountId, 5000)
+    Banking --> Controller: success
+    deactivate Banking
+    
+    Controller -> Dispenser: dispenseCash(5000)
+    activate Dispenser
+    Dispenser -> Dispenser: selectBills(5000)
+    Dispenser -> Dispenser: dispenseBills()
+    Dispenser -> Dispenser: updateCounter(-5000)
+    Dispenser --> Controller: success
+    deactivate Dispenser
+    
+    Controller -> Screen: displayMessage("Возьмите наличные: 5000")
+    activate Screen
+    Screen --> Controller:
+    deactivate Screen
+    
+    Controller -> Screen: displayMessage("Печать чека? (y/n)")
+    activate Screen
+    Screen --> Controller:
+    deactivate Screen
+    
+    Client -> Controller: confirmPrint("y")
+    
+    Controller -> Printer: printWithdrawalReceipt(transaction)
+    activate Printer
+    Printer -> Printer: formatReceipt()
+    Printer -> Printer: print()
+    Printer --> Controller: success
+    deactivate Printer
+    
+else Недостаточно средств
+    Banking --> Controller: InsufficientFunds
+    deactivate Banking
+    
+    Controller -> Screen: displayMessage("Недостаточно средств")
+    activate Screen
+    Screen --> Controller:
+    deactivate Screen
+    
+else Превышен лимит
+    Banking --> Controller: DailyLimitExceeded
+    deactivate Banking
+    
+    Controller -> Screen: displayMessage("Превышен суточный лимит")
+    activate Screen
+    Screen --> Controller:
+    deactivate Screen
+end
+
+Controller --> Client: returnToMenu()
+deactivate Controller
+
+@enduml

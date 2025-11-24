@@ -1,0 +1,61 @@
+@startuml
+title Диаграмма последовательности: Проверка баланса
+
+actor "Клиент" as Client
+participant "ATMController" as Controller
+participant "BankingService" as Banking
+participant "Screen" as Screen
+participant "ReceiptPrinter" as Printer
+
+Client -> Controller: selectCheckBalance()
+activate Controller
+
+Controller -> Screen: displayMessage("Запрос баланса...")
+activate Screen
+Screen --> Controller: 
+deactivate Screen
+
+Controller -> Banking: getBalance(accountId)
+activate Banking
+
+Banking -> Banking: queryDatabase(accountId)
+Banking --> Controller: balance
+deactivate Banking
+
+Controller -> Screen: displayMessage("Баланс: " + balance)
+activate Screen
+Screen --> Controller:
+deactivate Screen
+
+Controller -> Screen: displayMessage("Печать чека? (y/n)")
+activate Screen
+Screen --> Controller:
+deactivate Screen
+
+Client -> Controller: confirmPrint("y")
+
+alt Печать чека
+    Controller -> Printer: printBalanceReceipt(accountId, balance)
+    activate Printer
+    
+    Printer -> Printer: formatReceipt()
+    Printer -> Printer: print()
+    
+    Printer --> Controller: success
+    deactivate Printer
+    
+    Controller -> Screen: displayMessage("Чек распечатан")
+    activate Screen
+    Screen --> Controller:
+    deactivate Screen
+else Отказ от печати
+    Controller -> Screen: displayMessage("Возврат в меню")
+    activate Screen
+    Screen --> Controller:
+    deactivate Screen
+end
+
+Controller --> Client: returnToMenu()
+deactivate Controller
+
+@enduml

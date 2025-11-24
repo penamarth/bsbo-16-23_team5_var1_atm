@@ -1,0 +1,14 @@
+C:\Users\user\Desktop\algs\bsbo-16-23_team5_var1_atm\app\obj\Debug\net7.0\ATM.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\user\Desktop\algs\bsbo-16-23_team5_var1_atm\app\obj\Debug\net7.0\ATM.AssemblyInfoInputs.cache
+C:\Users\user\Desktop\algs\bsbo-16-23_team5_var1_atm\app\obj\Debug\net7.0\ATM.AssemblyInfo.cs
+C:\Users\user\Desktop\algs\bsbo-16-23_team5_var1_atm\app\obj\Debug\net7.0\ATM.csproj.CoreCompileInputs.cache
+C:\Users\user\Desktop\algs\bsbo-16-23_team5_var1_atm\app\bin\Debug\net7.0\ATM.exe
+C:\Users\user\Desktop\algs\bsbo-16-23_team5_var1_atm\app\bin\Debug\net7.0\ATM.deps.json
+C:\Users\user\Desktop\algs\bsbo-16-23_team5_var1_atm\app\bin\Debug\net7.0\ATM.runtimeconfig.json
+C:\Users\user\Desktop\algs\bsbo-16-23_team5_var1_atm\app\bin\Debug\net7.0\ATM.dll
+C:\Users\user\Desktop\algs\bsbo-16-23_team5_var1_atm\app\bin\Debug\net7.0\ATM.pdb
+C:\Users\user\Desktop\algs\bsbo-16-23_team5_var1_atm\app\obj\Debug\net7.0\ATM.dll
+C:\Users\user\Desktop\algs\bsbo-16-23_team5_var1_atm\app\obj\Debug\net7.0\refint\ATM.dll
+C:\Users\user\Desktop\algs\bsbo-16-23_team5_var1_atm\app\obj\Debug\net7.0\ATM.pdb
+C:\Users\user\Desktop\algs\bsbo-16-23_team5_var1_atm\app\obj\Debug\net7.0\ATM.genruntimeconfig.cache
+C:\Users\user\Desktop\algs\bsbo-16-23_team5_var1_atm\app\obj\Debug\net7.0\ref\ATM.dll

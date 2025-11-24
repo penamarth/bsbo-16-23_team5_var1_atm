@@ -1,0 +1,179 @@
+@startuml
+title Диаграмма последовательности: Техническое обслуживание
+
+actor "Техник" as Technician
+participant "MaintenanceController" as Controller
+participant "Screen" as Screen
+participant "Keypad" as Keypad
+participant "CashDispenser" as Dispenser
+participant "CashAcceptor" as Acceptor
+participant "DeviceMonitor" as Monitor
+participant "AuditLog" as Log
+
+Technician -> Controller: enterMaintenanceMode()
+activate Controller
+
+Controller -> Screen: displayMessage("=== РЕЖИМ ОБСЛУЖИВАНИЯ ===")
+activate Screen
+Screen --> Controller:
+deactivate Screen
+
+Controller -> Screen: displayMessage("Введите сервисный код")
+activate Screen
+Screen --> Controller:
+deactivate Screen
+
+Technician -> Keypad: enterServiceCode(9999)
+activate Keypad
+Keypad --> Controller: serviceCode = 9999
+deactivate Keypad
+
+Controller -> Controller: authenticateTechnician(serviceCode)
+Controller -> Controller: hashCode(serviceCode)
+Controller -> Controller: compareHash()
+Controller -> Controller: checkExpiration()
+
+alt Код верный и не истек
+    Controller -> Log: logAccess("SUCCESS", technicianId)
+    activate Log
+    Log --> Controller:
+    deactivate Log
+    
+    Controller -> Screen: displayMessage("МЕНЮ ОБСЛУЖИВАНИЯ")
+    activate Screen
+    Screen --> Controller:
+    deactivate Screen
+    
+    loop Пока не завершено
+        Controller -> Screen: displayMenu()
+        activate Screen
+        Screen --> Controller:
+        deactivate Screen
+        
+        Technician -> Controller: selectOperation(choice)
+        
+        alt Пополнить диспенсер
+            Controller -> Screen: displayMessage("Введите сумму")
+            activate Screen
+            Screen --> Controller:
+            deactivate Screen
+            
+            Technician -> Keypad: enterAmount(500000)
+            activate Keypad
+            Keypad --> Controller: amount = 500000
+            deactivate Keypad
+            
+            Controller -> Dispenser: refill(500000, technicianId)
+            activate Dispenser
+            Dispenser -> Dispenser: validateCapacity(500000)
+            Dispenser -> Dispenser: updateCounter(+500000)
+            Dispenser --> Controller: success, newBalance
+            deactivate Dispenser
+            
+            Controller -> Log: logOperation("REFILL", 500000)
+            activate Log
+            Log --> Controller:
+            deactivate Log
+            
+            Controller -> Screen: displayMessage("Пополнено: 500000")
+            activate Screen
+            Screen --> Controller:
+            deactivate Screen
+            
+        else Инкассировать купюроприемник
+            Controller -> Acceptor: getCollectedAmount()
+            activate Acceptor
+            Acceptor -> Acceptor: readCounter()
+            Acceptor --> Controller: collectedAmount
+            deactivate Acceptor
+            
+            Controller -> Screen: displayMessage("В купюроприемнике: " + collectedAmount)
+            activate Screen
+            Screen --> Controller:
+            deactivate Screen
+            
+            Technician -> Controller: confirmCollection("y")
+            
+            Controller -> Acceptor: collectAcceptor(technicianId)
+            activate Acceptor
+            Acceptor -> Acceptor: resetCounter()
+            Acceptor --> Controller: success
+            deactivate Acceptor
+            
+            Controller -> Log: logOperation("COLLECT", collectedAmount)
+            activate Log
+            Log --> Controller:
+            deactivate Log
+            
+            Controller -> Screen: displayMessage("Инкассировано: " + collectedAmount)
+            activate Screen
+            Screen --> Controller:
+            deactivate Screen
+            
+        else Проверить состояние
+            Controller -> Monitor: checkDeviceStatus()
+            activate Monitor
+            
+            Monitor -> Dispenser: getStatus()
+            activate Dispenser
+            Dispenser --> Monitor: status, cashRemaining
+            deactivate Dispenser
+            
+            Monitor -> Acceptor: getStatus()
+            activate Acceptor
+            Acceptor --> Monitor: status, cashAccepted
+            deactivate Acceptor
+            
+            Monitor -> Monitor: checkPrinter()
+            Monitor -> Monitor: checkCardReader()
+            Monitor -> Monitor: checkKeypad()
+            
+            Monitor --> Controller: deviceStatusReport
+            deactivate Monitor
+            
+            Controller -> Screen: displayStatusReport(report)
+            activate Screen
+            Screen --> Controller:
+            deactivate Screen
+            
+            Controller -> Log: logOperation("STATUS_CHECK")
+            activate Log
+            Log --> Controller:
+            deactivate Log
+            
+        else Завершить обслуживание
+            Controller -> Controller: generateMaintenanceReport(sessionDetails)
+            
+            Controller -> Screen: displayReport(report)
+            activate Screen
+            Screen --> Controller:
+            deactivate Screen
+            
+            Controller -> Log: logExit(technicianId)
+            activate Log
+            Log --> Controller:
+            deactivate Log
+            
+            Controller -> Screen: displayMessage("Обслуживание завершено")
+            activate Screen
+            Screen --> Controller:
+            deactivate Screen
+        end
+    end
+    
+else Неверный код
+    Controller -> Log: logAccess("FAILED", attemptCount)
+    activate Log
+    Log --> Controller:
+    deactivate Log
+    
+    Controller -> Screen: displayMessage("Неверный код. Доступ запрещен.")
+    activate Screen
+    Screen --> Controller:
+    deactivate Screen
+end
+
+Controller --> Technician: exitMaintenanceMode()
+deactivate Controller
+
+@enduml

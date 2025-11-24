@@ -1,0 +1,81 @@
+@startuml
+title Диаграмма последовательности: Смена PIN
+
+actor "Клиент" as Client
+participant "ATMController" as Controller
+participant "Screen" as Screen
+participant "Keypad" as Keypad
+participant "BankingService" as Banking
+
+Client -> Controller: selectChangePin()
+activate Controller
+
+Controller -> Screen: displayMessage("Введите новый PIN")
+activate Screen
+Screen --> Controller:
+deactivate Screen
+
+Client -> Keypad: enterNewPin()
+activate Keypad
+Keypad -> Keypad: encryptPin()
+Keypad --> Controller: encryptedNewPin
+deactivate Keypad
+
+Controller -> Controller: validatePinPolicy(newPin)
+
+alt PIN соответствует политике
+    Controller -> Screen: displayMessage("Подтвердите новый PIN")
+    activate Screen
+    Screen --> Controller:
+    deactivate Screen
+    
+    Client -> Keypad: enterPinConfirmation()
+    activate Keypad
+    Keypad -> Keypad: encryptPin()
+    Keypad --> Controller: encryptedConfirmPin
+    deactivate Keypad
+    
+    Controller -> Controller: verifyPinMatch(newPin, confirmPin)
+    
+    alt PIN совпадают
+        Controller -> Keypad: encryptPinForTransmission(newPin)
+        activate Keypad
+        Keypad -> Keypad: hardwareEncrypt()
+        Keypad --> Controller: transmissionEncryptedPin
+        deactivate Keypad
+        
+        Controller -> Banking: changePin(cardData, oldPin, transmissionEncryptedPin)
+        activate Banking
+        
+        Banking -> Banking: decryptPin()
+        Banking -> Banking: validatePinPolicy()
+        Banking -> Banking: deactivateOldPin()
+        Banking -> Banking: activateNewPin()
+        Banking -> Banking: auditLog()
+        
+        Banking --> Controller: success
+        deactivate Banking
+        
+        Controller -> Screen: displayMessage("PIN успешно изменен!")
+        activate Screen
+        Screen --> Controller:
+        deactivate Screen
+        
+    else PIN не совпадают
+        Controller -> Screen: displayMessage("PIN не совпадают")
+        activate Screen
+        Screen --> Controller:
+        deactivate Screen
+    end
+    
+else PIN не соответствует политике
+    Controller -> Screen: displayMessage("PIN слишком простой")
+    activate Screen
+    Screen --> Controller:
+    deactivate Screen
+end
+
+Controller --> Client: returnToMenu()
+deactivate Controller
+
+@enduml

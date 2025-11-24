@@ -1,0 +1,107 @@
+@startuml
+title Диаграмма последовательности: Внесение наличных
+
+actor "Клиент" as Client
+participant "ATMController" as Controller
+participant "Screen" as Screen
+participant "CashAcceptor" as Acceptor
+participant "BankingService" as Banking
+participant "ReceiptPrinter" as Printer
+
+Client -> Controller: selectDeposit()
+activate Controller
+
+Controller -> Screen: displayMessage("Вставьте купюры")
+activate Screen
+Screen --> Controller:
+deactivate Screen
+
+Controller -> Acceptor: openSlot()
+activate Acceptor
+Acceptor --> Controller: slotOpened
+deactivate Acceptor
+
+Client -> Acceptor: insertBills()
+activate Acceptor
+
+loop Для каждой купюры
+    Acceptor -> Acceptor: validateBill(bill)
+    
+    alt Купюра подлинная
+        Acceptor -> Acceptor: recognizeValue(bill)
+        Acceptor -> Acceptor: storeInBuffer(bill)
+        Acceptor -> Controller: billAccepted(value)
+        
+        Controller -> Screen: displayMessage("Принято: " + totalAmount)
+        activate Screen
+        Screen --> Controller:
+        deactivate Screen
+    else Купюра поддельная/повреждена
+        Acceptor -> Acceptor: ejectBill(bill)
+        Acceptor -> Controller: billRejected(reason)
+        
+        Controller -> Screen: displayMessage("Купюра не принята")
+        activate Screen
+        Screen --> Controller:
+        deactivate Screen
+    end
+end
+
+Acceptor -> Acceptor: calculateTotal()
+Acceptor --> Controller: billDetails, totalAmount
+deactivate Acceptor
+
+Controller -> Screen: displayMessage("Принято: " + totalAmount + " Подтвердить?")
+activate Screen
+Screen --> Controller:
+deactivate Screen
+
+Client -> Controller: confirmDeposit("y")
+
+alt Подтверждение
+    Controller -> Banking: depositCash(accountId, totalAmount, billDetails)
+    activate Banking
+    
+    Banking -> Banking: validateAccount(accountId)
+    Banking -> Banking: creditAmount(accountId, totalAmount)
+    Banking -> Banking: updateLedger()
+    
+    Banking --> Controller: success, newBalance
+    deactivate Banking
+    
+    Controller -> Acceptor: finalizeBills()
+    activate Acceptor
+    Acceptor -> Acceptor: transferToVault()
+    Acceptor -> Acceptor: updateCounter(+totalAmount)
+    Acceptor --> Controller: success
+    deactivate Acceptor
+    
+    Controller -> Screen: displayMessage("Зачислено: " + totalAmount)
+    activate Screen
+    Screen --> Controller:
+    deactivate Screen
+    
+    Controller -> Printer: printDepositReceipt(transaction)
+    activate Printer
+    Printer -> Printer: formatReceipt()
+    Printer -> Printer: print()
+    Printer --> Controller: success
+    deactivate Printer
+    
+else Отмена
+    Controller -> Acceptor: returnBills(billDetails)
+    activate Acceptor
+    Acceptor -> Acceptor: ejectAllBills()
+    Acceptor --> Controller: billsReturned
+    deactivate Acceptor
+    
+    Controller -> Screen: displayMessage("Операция отменена")
+    activate Screen
+    Screen --> Controller:
+    deactivate Screen
+end
+
+Controller --> Client: returnToMenu()
+deactivate Controller
+
+@enduml

@@ -1,0 +1,128 @@
+@startuml
+title Диаграмма последовательности: Перевод средств
+
+actor "Клиент" as Client
+participant "ATMController" as Controller
+participant "Screen" as Screen
+participant "Keypad" as Keypad
+participant "BankingService" as Banking
+participant "NotificationService" as Notification
+participant "ReceiptPrinter" as Printer
+
+Client -> Controller: selectTransfer()
+activate Controller
+
+Controller -> Screen: displayMessage("Введите номер карты получателя")
+activate Screen
+Screen --> Controller:
+deactivate Screen
+
+Client -> Keypad: enterCardNumber(toCardNumber)
+activate Keypad
+Keypad --> Controller: toCardNumber
+deactivate Keypad
+
+Controller -> Controller: validateCardNumber(toCardNumber)
+Controller -> Controller: luhnCheck(toCardNumber)
+
+alt Номер карты валиден
+    Controller -> Banking: getRecipientInfo(toCardNumber)
+    activate Banking
+    Banking -> Banking: queryRecipient(toCardNumber)
+    Banking --> Controller: recipientInfo(name, bank)
+    deactivate Banking
+    
+    Controller -> Screen: displayMessage("Получатель: " + name + ", " + bank)
+    activate Screen
+    Screen --> Controller:
+    deactivate Screen
+    
+    Controller -> Screen: displayMessage("Верно? (y/n)")
+    activate Screen
+    Screen --> Controller:
+    deactivate Screen
+    
+    Client -> Controller: confirmRecipient("y")
+    
+    Controller -> Screen: displayMessage("Введите сумму")
+    activate Screen
+    Screen --> Controller:
+    deactivate Screen
+    
+    Client -> Keypad: enterAmount(3000)
+    activate Keypad
+    Keypad --> Controller: amount = 3000
+    deactivate Keypad
+    
+    Controller -> Banking: calculateCommission(accountId, toCardNumber, 3000)
+    activate Banking
+    Banking -> Banking: determineTransferType()
+    Banking -> Banking: calculateFee()
+    Banking --> Controller: commission = 30
+    deactivate Banking
+    
+    Controller -> Screen: displayMessage("Перевод: 3000, Комиссия: 30, Итого: 3030")
+    activate Screen
+    Screen --> Controller:
+    deactivate Screen
+    
+    Controller -> Screen: displayMessage("Подтвердить? (y/n)")
+    activate Screen
+    Screen --> Controller:
+    deactivate Screen
+    
+    Client -> Controller: confirmTransfer("y")
+    
+    Controller -> Banking: transferFunds(accountId, toCardNumber, 3000)
+    activate Banking
+    
+    Banking -> Banking: checkBalance(accountId, 3030)
+    
+    alt Достаточно средств
+        Banking -> Banking: debitFrom(accountId, 3030)
+        Banking -> Banking: creditTo(toCardNumber, 3000)
+        Banking -> Banking: recordCommission(30)
+        Banking -> Banking: auditLog()
+        
+        Banking --> Controller: success, transactionId
+        deactivate Banking
+        
+        Controller -> Notification: notifyRecipient(toCardNumber, 3000, fromCardMasked)
+        activate Notification
+        Notification -> Notification: sendSMS()
+        Notification --> Controller: sent
+        deactivate Notification
+        
+        Controller -> Screen: displayMessage("Перевод выполнен")
+        activate Screen
+        Screen --> Controller:
+        deactivate Screen
+        
+        Controller -> Printer: printTransferReceipt(transaction)
+        activate Printer
+        Printer -> Printer: formatReceipt()
+        Printer -> Printer: print()
+        Printer --> Controller: success
+        deactivate Printer
+        
+    else Недостаточно средств
+        Banking --> Controller: InsufficientFunds
+        deactivate Banking
+        
+        Controller -> Screen: displayMessage("Недостаточно средств")
+        activate Screen
+        Screen --> Controller:
+        deactivate Screen
+    end
+    
+else Номер карты не найден
+    Controller -> Screen: displayMessage("Карта не найдена")
+    activate Screen
+    Screen --> Controller:
+    deactivate Screen
+end
+
+Controller --> Client: returnToMenu()
+deactivate Controller
+
+@enduml
