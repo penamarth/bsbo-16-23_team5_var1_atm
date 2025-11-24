@@ -1,0 +1,84 @@
+@startuml
+skinparam monochrome true
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam maxMessageSize 150
+
+actor "Customer" as Customer
+participant "Screen" as Screen
+participant "Keypad" as Keypad
+participant "CardReader" as CardReader
+participant "ATMController" as Controller
+participant "IBankingService" as Bank
+participant "CashDispenser" as Dispenser
+participant "ReceiptPrinter" as Printer
+participant "MenuHandler" as Menu
+
+' 1-3. Вставка карты
+Customer -> CardReader: 1 Insert card
+CardReader -> Controller: 2 ReadCard(cardData)
+Controller -> Screen: 3 Request PIN (timeout 60s)
+
+' Блок обработки таймаута ввода ПИН
+alt Timeout (BR-SESSION-01)
+    Controller -> Screen: 4 Session timeout
+    Controller -> CardReader: 5 Eject card (Implied)
+else Entered PIN
+    Customer -> Controller: 6 Pin
+    Controller -> Bank: 7 Authenticate(cardData, pin)
+    
+    ' Блок проверки авторизации
+    alt Auth OK
+        ' Успешная авторизация, переход к выбору действия
+    else Auth failed
+        break
+            Controller -> Screen: 8 Wrong PIN
+        end
+    end
+end
+
+' Блок блокировки карты
+alt Auth failed 3 times (BR-AUTH-02)
+    Controller -> Screen: 9 Card blocked/retained
+    Controller -> CardReader: 10 Retain card (Implied)
+else Authenticated
+    ' 11-12. Выбор действия через MenuHandler
+    Controller -> Menu: 11 GetUserActionChoice()
+    Menu --> Controller: 12 UserAction.Withdraw
+    
+    ' 13-14. Ввод суммы
+    Controller -> Screen: 13 Enter amount (timeout 60s)
+    Customer -> Controller: 14 Input amount
+    
+    ' Блок таймаута ввода суммы
+    alt Timeout (BR-SESSION-01)
+        Controller -> Menu: 15 Timeout, back to menu
+    else Entered amount
+        Controller -> Controller: 16 amount
+        
+        ' Блок проверки наличия денег в банкомате
+        alt Not enough cash in ATM (BR-ATM-01)
+            Controller -> Screen: 17 Declined: ATM cash insufficient
+        else ATM can dispense
+            ' 18. Запрос к банковскому сервису
+            Controller -> Bank: 18 ExecuteWithdrawal(accountId, amount)
+            
+            ' Блок обработки ответа банка
+            alt Declined: insufficient funds (BR-LIMIT-01)
+                Controller -> Screen: 19 Declined: insufficient funds
+            else Declined: daily limit (BR-LIMIT-02)
+                Controller -> Screen: 20 Declined: daily limit exceeded
+            else Approved
+                ' 21. Выдача денег
+                Controller -> Dispenser: 21 DispenseCash(amount)
+                
+                ' 22. Печать чека (опционально)
+                opt Print receipt on request
+                    Controller -> Printer: 22 PrintReceipt("Withdrawn: ...")
+                end
+            end
+        end
+    end
+end
+
+@enduml
