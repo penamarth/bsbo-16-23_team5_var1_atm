@@ -10,7 +10,7 @@ public class MaintenanceController {
     private readonly CashDispenser _cashDispenser;
     private readonly CashAcceptor _cashAcceptor;
 
-    private const string ServiceCode = "9999"; // Сервисный код для инкассатора
+    private const string ServiceCode = "9999";
 
     public MaintenanceController(Screen screen, Keypad keypad, CashDispenser cashDispenser, CashAcceptor cashAcceptor) {
         _screen = screen;
@@ -49,7 +49,7 @@ public class MaintenanceController {
 
             string? choice = _keypad.GetInput();
 
-            switch (choice) {
+            switch (choice) { // TODO: enum
                 case "1":
                     RefillDispenser();
                     break;

@@ -6,10 +6,7 @@ public class CashAcceptor {
     private decimal _totalAmount;
 
     public decimal AcceptCash() {
-        // Simulate accepting cash
         Logger.Log("Вставьте купюры...");
-        // In a real ATM, this would interact with hardware.
-        // Here we simulate it by asking user to type amount.
         Console.Write("Введите сумму внесенных средств: ");
         string? input = Console.ReadLine();
         if (decimal.TryParse(input, out decimal amount) && amount > 0) {
@@ -23,10 +20,9 @@ public class CashAcceptor {
 
     public void EjectCash() {
         Logger.Log("Возврат внесенных средств...");
-        _totalAmount = 0; // Reset for simulation
+        _totalAmount = 0;
     }
     
-    // For Collector
     public decimal CollectAllCash() {
         decimal amount = _totalAmount;
         _totalAmount = 0;

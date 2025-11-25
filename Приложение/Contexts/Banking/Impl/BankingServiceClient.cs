@@ -58,7 +58,6 @@ public class BankingServiceClient : IBankingService
 
     public bool ChangePin(CardData cardData, Pin oldPin, Pin newPin) {
         Logger.Log($"Смена PIN для карты {cardData.CardNumber}...");
-        // In real system, verify oldPin again and update.
         return true;
     }
 
@@ -84,8 +83,6 @@ public class BankingServiceClient : IBankingService
         }
 
         _accountBalances[fromAccount.Value] -= amount;
-        // In mock, we don't update the target account as we don't have its ID mapping easily here,
-        // or we could simulate it if we had it. For now just deduct.
         return true;
     }
 }
