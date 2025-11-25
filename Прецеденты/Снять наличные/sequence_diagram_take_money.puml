@@ -47,34 +47,62 @@ else Authenticated
     Menu --> Controller: 12 UserAction.Withdraw
     
     ' 13-14. Ввод суммы
-    Controller -> Screen: 13 Enter amount (timeout 60s)
-    Customer -> Controller: 14 Input amount
+    Controller -> Screen: 13 DisplayMessage("Введите сумму для снятия:")
+    Controller -> Keypad: 14 GetInput(timeout=60s)
+    activate Keypad
     
     ' Блок таймаута ввода суммы
     alt Timeout (BR-SESSION-01)
-        Controller -> Menu: 15 Timeout, back to menu
+        Keypad --> Controller: 15 null (Timeout)
+        Controller -> Screen: DisplayMessage("Таймаут ввода суммы. Возврат в меню.")
+        deactivate Keypad
     else Entered amount
-        Controller -> Controller: 16 amount
+        Customer -> Keypad: Ввод суммы
+        Keypad --> Controller: 16 amountStr
+        deactivate Keypad
         
-        ' Блок проверки наличия денег в банкомате
-        alt Not enough cash in ATM (BR-ATM-01)
-            Controller -> Screen: 17 Declined: ATM cash insufficient
-        else ATM can dispense
-            ' 18. Запрос к банковскому сервису
-            Controller -> Bank: 18 ExecuteWithdrawal(accountId, amount)
+        Controller -> Controller: 17 TryParse(amountStr, out amount)
+        
+        alt Неверный формат суммы
+            Controller -> Screen: DisplayMessage("Неверный формат суммы.")
+        else Валидная сумма
+            ' Блок проверки наличия денег в банкомате
+            Controller -> Dispenser: 18 CanDispense(amount)
+            activate Dispenser
+            Dispenser --> Controller: 19 true/false
+            deactivate Dispenser
             
-            ' Блок обработки ответа банка
-            alt Declined: insufficient funds (BR-LIMIT-01)
-                Controller -> Screen: 19 Declined: insufficient funds
-            else Declined: daily limit (BR-LIMIT-02)
-                Controller -> Screen: 20 Declined: daily limit exceeded
-            else Approved
-                ' 21. Выдача денег
-                Controller -> Dispenser: 21 DispenseCash(amount)
+            alt Not enough cash in ATM (BR-ATM-01)
+                Controller -> Screen: 20 DisplayMessage("Недостаточно наличности в банкомате.")
+            else ATM can dispense
+                ' 21. Запрос к банковскому сервису
+                Controller -> Bank: 21 ExecuteWithdrawal(accountId, amount)
+                activate Bank
                 
-                ' 22. Печать чека (опционально)
-                opt Print receipt on request
-                    Controller -> Printer: 22 PrintReceipt("Withdrawn: ...")
+                ' Блок обработки ответа банка
+                alt Declined: insufficient funds or daily limit (BR-LIMIT-01, BR-LIMIT-02)
+                    Bank --> Controller: 22 false
+                    Controller -> Screen: 23 DisplayMessage("Операция отклонена (баланс/лимит).")
+                else Approved
+                    Bank --> Controller: 24 true
+                    deactivate Bank
+                    
+                    ' 25. Выдача денег
+                    Controller -> Dispenser: 25 TryDispense(amount)
+                    activate Dispenser
+                    Dispenser --> Controller: 26 success
+                    deactivate Dispenser
+                    
+                    ' 27. Печать чека (опционально)
+                    opt Print receipt on request
+                        Controller -> Screen: DisplayMessage("Печать чека? (y/n)")
+                        Controller -> Keypad: GetInput(timeout=60s)
+                        activate Keypad
+                        Customer -> Keypad: Ввод "y"
+                        Keypad --> Controller: "y"
+                        deactivate Keypad
+                        Controller -> Printer: 27 PrintReceipt("Withdrawn: " + amount + "; Remaining ATM cash: " + Dispenser.Remaining)
+                    end
                 end
             end
         end

@@ -1,5 +1,5 @@
 using ATM.Kernel.Common;
-using ATM.Contexts.Hardware;
+using ATM.Kernel.Hardware;
 using ATM.Kernel.UI;
 
 namespace ATM.Contexts.Maintenance;

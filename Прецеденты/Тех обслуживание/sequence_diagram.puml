@@ -7,173 +7,131 @@ participant "Screen" as Screen
 participant "Keypad" as Keypad
 participant "CashDispenser" as Dispenser
 participant "CashAcceptor" as Acceptor
-participant "DeviceMonitor" as Monitor
-participant "AuditLog" as Log
+participant "Logger" as Logger
 
-Technician -> Controller: enterMaintenanceMode()
+Technician -> Controller: Run()
 activate Controller
 
-Controller -> Screen: displayMessage("=== РЕЖИМ ОБСЛУЖИВАНИЯ ===")
+Controller -> Controller: AuthenticateCollector()
+activate Controller
+
+Controller -> Screen: DisplayMessage("=== РЕЖИМ ОБСЛУЖИВАНИЯ ===")
 activate Screen
 Screen --> Controller:
 deactivate Screen
 
-Controller -> Screen: displayMessage("Введите сервисный код")
+Controller -> Screen: DisplayMessage("Введите сервисный код:")
 activate Screen
 Screen --> Controller:
 deactivate Screen
 
-Technician -> Keypad: enterServiceCode(9999)
+Controller -> Keypad: GetInput()
 activate Keypad
-Keypad --> Controller: serviceCode = 9999
+Technician -> Keypad: Ввод кода "9999"
+Keypad --> Controller: "9999"
 deactivate Keypad
 
-Controller -> Controller: authenticateTechnician(serviceCode)
-Controller -> Controller: hashCode(serviceCode)
-Controller -> Controller: compareHash()
-Controller -> Controller: checkExpiration()
+Controller -> Controller: Проверка кода (serviceCode == "9999")
 
-alt Код верный и не истек
-    Controller -> Log: logAccess("SUCCESS", technicianId)
-    activate Log
-    Log --> Controller:
-    deactivate Log
-    
-    Controller -> Screen: displayMessage("МЕНЮ ОБСЛУЖИВАНИЯ")
-    activate Screen
-    Screen --> Controller:
-    deactivate Screen
+alt Код верный
+    Controller -> Logger: Log("Инкассатор успешно аутентифицирован.")
+    activate Logger
+    Logger --> Controller:
+    deactivate Logger
     
     loop Пока не завершено
-        Controller -> Screen: displayMenu()
+        Controller -> Screen: DisplayMessage("=== МЕНЮ ОБСЛУЖИВАНИЯ ===")
         activate Screen
         Screen --> Controller:
         deactivate Screen
         
-        Technician -> Controller: selectOperation(choice)
+        Controller -> Screen: DisplayMessage("1. Пополнить диспенсер")
+        Controller -> Screen: DisplayMessage("2. Инкассировать купюроприемник")
+        Controller -> Screen: DisplayMessage("3. Проверить состояние")
+        Controller -> Screen: DisplayMessage("4. Завершить обслуживание")
         
-        alt Пополнить диспенсер
-            Controller -> Screen: displayMessage("Введите сумму")
+        Controller -> Keypad: GetInput()
+        activate Keypad
+        Technician -> Keypad: Ввод выбора
+        Keypad --> Controller: choice
+        deactivate Keypad
+        
+        alt Пополнить диспенсер (choice == "1")
+            Controller -> Screen: DisplayMessage("Введите сумму для загрузки в диспенсер:")
             activate Screen
             Screen --> Controller:
             deactivate Screen
             
-            Technician -> Keypad: enterAmount(500000)
+            Controller -> Keypad: GetInput()
             activate Keypad
-            Keypad --> Controller: amount = 500000
+            Technician -> Keypad: Ввод суммы
+            Keypad --> Controller: amountStr
             deactivate Keypad
             
-            Controller -> Dispenser: refill(500000, technicianId)
-            activate Dispenser
-            Dispenser -> Dispenser: validateCapacity(500000)
-            Dispenser -> Dispenser: updateCounter(+500000)
-            Dispenser --> Controller: success, newBalance
-            deactivate Dispenser
+            Controller -> Controller: TryParse(amountStr, out amount)
             
-            Controller -> Log: logOperation("REFILL", 500000)
-            activate Log
-            Log --> Controller:
-            deactivate Log
+            alt Некорректная сумма
+                Controller -> Screen: DisplayMessage("Некорректная сумма.")
+            else Валидная сумма
+                Controller -> Dispenser: Refill(amount)
+                activate Dispenser
+                Dispenser --> Controller
+                deactivate Dispenser
+                
+                Controller -> Screen: DisplayMessage("Диспенсер пополнен на " + amount)
+                Controller -> Screen: DisplayMessage("Текущий остаток: " + Dispenser.Remaining)
+            end
             
-            Controller -> Screen: displayMessage("Пополнено: 500000")
-            activate Screen
-            Screen --> Controller:
-            deactivate Screen
-            
-        else Инкассировать купюроприемник
-            Controller -> Acceptor: getCollectedAmount()
+        else Инкассировать купюроприемник (choice == "2")
+            Controller -> Acceptor: CollectAllCash()
             activate Acceptor
-            Acceptor -> Acceptor: readCounter()
             Acceptor --> Controller: collectedAmount
             deactivate Acceptor
             
-            Controller -> Screen: displayMessage("В купюроприемнике: " + collectedAmount)
+            Controller -> Screen: DisplayMessage("Изъято из купюроприемника: " + collectedAmount)
             activate Screen
             Screen --> Controller:
             deactivate Screen
             
-            Technician -> Controller: confirmCollection("y")
-            
-            Controller -> Acceptor: collectAcceptor(technicianId)
-            activate Acceptor
-            Acceptor -> Acceptor: resetCounter()
-            Acceptor --> Controller: success
-            deactivate Acceptor
-            
-            Controller -> Log: logOperation("COLLECT", collectedAmount)
-            activate Log
-            Log --> Controller:
-            deactivate Log
-            
-            Controller -> Screen: displayMessage("Инкассировано: " + collectedAmount)
+        else Проверить состояние (choice == "3")
+            Controller -> Screen: DisplayMessage("=== СТАТУС УСТРОЙСТВ ===")
+            Controller -> Screen: DisplayMessage("Диспенсер: " + Dispenser.Remaining)
+            Controller -> Screen: DisplayMessage("Купюроприемник: готов к работе")
+            Controller -> Screen: DisplayMessage("Принтер: готов к работе")
+            Controller -> Screen: DisplayMessage("Кардридер: готов к работе")
             activate Screen
             Screen --> Controller:
             deactivate Screen
             
-        else Проверить состояние
-            Controller -> Monitor: checkDeviceStatus()
-            activate Monitor
-            
-            Monitor -> Dispenser: getStatus()
-            activate Dispenser
-            Dispenser --> Monitor: status, cashRemaining
-            deactivate Dispenser
-            
-            Monitor -> Acceptor: getStatus()
-            activate Acceptor
-            Acceptor --> Monitor: status, cashAccepted
-            deactivate Acceptor
-            
-            Monitor -> Monitor: checkPrinter()
-            Monitor -> Monitor: checkCardReader()
-            Monitor -> Monitor: checkKeypad()
-            
-            Monitor --> Controller: deviceStatusReport
-            deactivate Monitor
-            
-            Controller -> Screen: displayStatusReport(report)
+        else Завершить обслуживание (choice == "4")
+            Controller -> Screen: DisplayMessage("Обслуживание завершено.")
             activate Screen
             Screen --> Controller:
             deactivate Screen
             
-            Controller -> Log: logOperation("STATUS_CHECK")
-            activate Log
-            Log --> Controller:
-            deactivate Log
+            Controller -> Logger: Log("Сессия обслуживания завершена.")
+            activate Logger
+            Logger --> Controller:
+            deactivate Logger
             
-        else Завершить обслуживание
-            Controller -> Controller: generateMaintenanceReport(sessionDetails)
-            
-            Controller -> Screen: displayReport(report)
-            activate Screen
-            Screen --> Controller:
-            deactivate Screen
-            
-            Controller -> Log: logExit(technicianId)
-            activate Log
-            Log --> Controller:
-            deactivate Log
-            
-            Controller -> Screen: displayMessage("Обслуживание завершено")
-            activate Screen
-            Screen --> Controller:
-            deactivate Screen
+            Controller -> Controller: sessionActive = false
+        else Неверный выбор
+            Controller -> Screen: DisplayMessage("Неверный выбор.")
         end
     end
+    deactivate Controller
     
 else Неверный код
-    Controller -> Log: logAccess("FAILED", attemptCount)
-    activate Log
-    Log --> Controller:
-    deactivate Log
+    Controller -> Logger: Log("Ошибка аутентификации инкассатора.", LogLevel.Warning)
+    activate Logger
+    Logger --> Controller:
+    deactivate Logger
     
-    Controller -> Screen: displayMessage("Неверный код. Доступ запрещен.")
+    Controller -> Screen: DisplayMessage("Неверный код. Доступ запрещен.")
     activate Screen
     Screen --> Controller:
     deactivate Screen
+    deactivate Controller
 end
-
-Controller --> Technician: exitMaintenanceMode()
-deactivate Controller
 
 @enduml

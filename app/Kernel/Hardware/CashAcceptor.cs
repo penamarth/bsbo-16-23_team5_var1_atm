@@ -1,6 +1,6 @@
 using ATM.Kernel.Common;
 
-namespace ATM.Contexts.Hardware;
+namespace ATM.Kernel.Hardware;
 
 public class CashAcceptor {
     private decimal _totalAmount;
@@ -30,3 +30,4 @@ public class CashAcceptor {
         return amount;
     }
 }
+

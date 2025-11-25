@@ -12,80 +12,70 @@ participant "ReceiptPrinter" as Printer
 Client -> Controller: selectWithdraw()
 activate Controller
 
-Controller -> Screen: displayMessage("Введите сумму")
+Controller -> Screen: DisplayMessage("Введите сумму для снятия:")
 activate Screen
 Screen --> Controller:
 deactivate Screen
 
-Client -> Keypad: enterAmount(5000)
+Controller -> Keypad: GetInput(timeout=60s)
 activate Keypad
-Keypad --> Controller: amount = 5000
-deactivate Keypad
 
-Controller -> Controller: validateAmount(5000)
+alt Таймаут ввода суммы
+    Keypad --> Controller: null
+    Controller -> Screen: DisplayMessage("Таймаут ввода суммы. Возврат в меню.")
+    deactivate Keypad
+    Controller --> Client: returnToMenu()
+else Введена сумма
+    Client -> Keypad: Ввод суммы
+    Keypad --> Controller: amountStr
+    deactivate Keypad
 
-Controller -> Dispenser: canDispense(5000)
-activate Dispenser
-Dispenser -> Dispenser: checkCashAvailability()
-Dispenser --> Controller: true
-deactivate Dispenser
+Controller -> Controller: TryParse(amountStr, out amount)
 
-Controller -> Banking: executeWithdrawal(accountId, 5000)
-activate Banking
-
-Banking -> Banking: checkBalance(accountId)
-Banking -> Banking: checkDailyLimit(accountId, 5000)
-
-alt Достаточно средств и лимит не превышен
-    Banking -> Banking: deductAmount(accountId, 5000)
-    Banking -> Banking: updateDailyLimit(accountId, 5000)
-    Banking --> Controller: success
-    deactivate Banking
-    
-    Controller -> Dispenser: dispenseCash(5000)
+alt Неверный формат суммы
+    Controller -> Screen: DisplayMessage("Неверный формат суммы.")
+else Валидная сумма
+    Controller -> Dispenser: CanDispense(amount)
     activate Dispenser
-    Dispenser -> Dispenser: selectBills(5000)
-    Dispenser -> Dispenser: dispenseBills()
-    Dispenser -> Dispenser: updateCounter(-5000)
-    Dispenser --> Controller: success
+    Dispenser --> Controller: true/false
     deactivate Dispenser
     
-    Controller -> Screen: displayMessage("Возьмите наличные: 5000")
-    activate Screen
-    Screen --> Controller:
-    deactivate Screen
-    
-    Controller -> Screen: displayMessage("Печать чека? (y/n)")
-    activate Screen
-    Screen --> Controller:
-    deactivate Screen
-    
-    Client -> Controller: confirmPrint("y")
-    
-    Controller -> Printer: printWithdrawalReceipt(transaction)
-    activate Printer
-    Printer -> Printer: formatReceipt()
-    Printer -> Printer: print()
-    Printer --> Controller: success
-    deactivate Printer
-    
-else Недостаточно средств
-    Banking --> Controller: InsufficientFunds
-    deactivate Banking
-    
-    Controller -> Screen: displayMessage("Недостаточно средств")
-    activate Screen
-    Screen --> Controller:
-    deactivate Screen
-    
-else Превышен лимит
-    Banking --> Controller: DailyLimitExceeded
-    deactivate Banking
-    
-    Controller -> Screen: displayMessage("Превышен суточный лимит")
-    activate Screen
-    Screen --> Controller:
-    deactivate Screen
+    alt Недостаточно наличности в банкомате
+        Controller -> Screen: DisplayMessage("Недостаточно наличности в банкомате.")
+    else Банкомат может выдать
+        Controller -> Banking: ExecuteWithdrawal(accountId, amount)
+        activate Banking
+        Banking --> Controller: success/false
+        deactivate Banking
+        
+        alt Операция отклонена (баланс/лимит)
+            Controller -> Screen: DisplayMessage("Операция отклонена (баланс/лимит).")
+        else Операция одобрена
+            Controller -> Dispenser: TryDispense(amount)
+            activate Dispenser
+            Dispenser --> Controller: success
+            deactivate Dispenser
+            
+            ' --- Предложение печати чека ---
+            Controller -> Screen: DisplayMessage("Печать чека? (y/n)")
+            Controller -> Keypad: GetInput(timeout=60s)
+            activate Keypad
+            
+            alt Клиент согласился
+                Client -> Keypad: Ввод "y"
+                Keypad --> Controller: "y"
+                deactivate Keypad
+                
+                Controller -> Printer: PrintReceipt("Withdrawn: " + amount)
+                activate Printer
+                Printer --> Controller
+                deactivate Printer
+            else Клиент отказался или таймаут
+                Keypad --> Controller: "n" или null
+                deactivate Keypad
+            end
+        end
+    end
 end
 
 Controller --> Client: returnToMenu()

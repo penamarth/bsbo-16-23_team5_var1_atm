@@ -11,6 +11,7 @@ rectangle "Банкомат (ATM)" {
     usecase "Снятие наличных" as Withdraw
     usecase "Запрос баланса" as CheckBalance
     usecase "Внесение наличных" as Deposit
+    usecase "Перевод средств" as Transfer
     usecase "Смена ПИН-кода" as ChangePin
     
     ' Вспомогательные варианты
@@ -29,6 +30,7 @@ actor "Система мониторинга\nбезопасности" as Secur
 Client -- Withdraw
 Client -- CheckBalance
 Client -- Deposit
+Client -- Transfer
 Client -- ChangePin
 
 ' 2. Связи между вариантами
@@ -36,18 +38,22 @@ Client -- ChangePin
 Withdraw ..> Auth
 CheckBalance ..> Auth
 Deposit ..> Auth
+Transfer ..> Auth
 ChangePin ..> Auth
 
 ' 3. Дополнительные опции
 ' Чек печатается по желанию
 Withdraw <.. PrintReceipt
 Deposit <.. PrintReceipt
+Transfer <.. PrintReceipt
+CheckBalance <.. PrintReceipt
 
 ' 4. Связи с внешними системами 
 ' Банкомат обращается к банку для проверки денег и счета
 Withdraw -- BankSystem
 CheckBalance -- BankSystem
 Deposit -- BankSystem
+Transfer -- BankSystem
 ChangePin -- BankSystem
 
 ' 5. Связи Техника

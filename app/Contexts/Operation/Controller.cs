@@ -1,5 +1,5 @@
 using ATM.Kernel.Common;
-using ATM.Contexts.Hardware;
+using ATM.Kernel.Hardware;
 using ATM.Kernel.Models;
 using ATM.Contexts.Banking;
 using ATM.Kernel.UI;

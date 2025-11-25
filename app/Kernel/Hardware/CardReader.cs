@@ -1,7 +1,7 @@
 using ATM.Kernel.Common;
 using ATM.Kernel.Models;
 
-namespace ATM.Contexts.Hardware;
+namespace ATM.Kernel.Hardware;
 
 public class CardReader {
     public CardData ReadCard() {
@@ -10,3 +10,4 @@ public class CardReader {
         return new CardData("1234-5678-9012-3456");
     }
 }
+

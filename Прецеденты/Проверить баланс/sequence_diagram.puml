@@ -17,64 +17,39 @@ Screen -> ATMController : UserAction.CheckBalance
 ' --- Основной поток: Запрос баланса ---
 activate ATMController
 
-    ATMController -> IBankingService : getBalance(accountId)
+    ATMController -> IBankingService : GetBalance(accountId)
     activate IBankingService
     
-    alt Банковская система недоступна / Таймаут (Расширение 2а)
-        IBankingService -> ATMController : Timeout / ConnectionError
-        ATMController -> Screen : DisplayMessage("Ошибка связи. Попробуйте позже")
-        ATMController -> ATMController : ReturnToMenu()
-    else Ошибка банка (Расширение 3а)
-        IBankingService --> ATMController : BankingServiceException
-        deactivate IBankingService
-        ATMController -> Screen : DisplayMessage("Невозможно получить баланс")
-        ATMController -> ATMController : LogError()
-        ATMController -> ATMController : ReturnToMenu()
     else Успешный ответ
         IBankingService --> ATMController : balance (decimal)
         deactivate IBankingService
         
         ' --- Отображение баланса ---
         ATMController -> Screen : DisplayMessage("Текущий баланс: " + balance)
-        ATMController -> ATMController : LogTransaction(balanceRequest)
         
         ' --- Предложение печати чека ---
         ATMController -> Screen : DisplayMessage("Печать чека? (y/n)")
-        
-        ' Ожидание ввода с таймаутом (Расширение 6а)
-        ATMController -> Keypad : WaitForInput(timeout=60s)
+        ATMController -> Keypad : GetInput(timeout=60s)
         activate Keypad
         
-        alt Таймаут ожидания ввода (Расширение 6а)
-            Keypad --> ATMController : Timeout
+        alt Таймаут ожидания ввода
+            Keypad --> ATMController : null (Timeout)
             ATMController -> Screen : DisplayMessage("Таймаут. Возврат в меню")
-        else Клиент отказался (Расширение 7а)
+        else Клиент отказался
             Customer -> Keypad : Ввод "n"
-            Keypad --> ATMController : Input("n")
-            ATMController -> ATMController : ReturnToMenu()
-        else Клиент согласился (Основной сценарий)
+            Keypad --> ATMController : "n"
+        else Клиент согласился
             Customer -> Keypad : Ввод "y"
-            Keypad --> ATMController : Input("y")
+            Keypad --> ATMController : "y"
             deactivate Keypad
             
             ' --- Печать чека ---
-            group Печать чека
-                ATMController -> ReceiptPrinter : printBalanceReceipt(details)
-                activate ReceiptPrinter
-                
-                alt Ошибки принтера (Расширения 9а, 9б)
-                    ReceiptPrinter --> ATMController : Error (NoPaper / HardwareFault)
-                    ATMController -> Screen : DisplayMessage("Принтер недоступен")
-                    ATMController -> ATMController : LogError(PrinterFault)
-                else Успешная печать
-                    ReceiptPrinter --> ATMController : true (Success)
-                    ATMController -> Screen : DisplayMessage("Заберите чек")
-                end
-                deactivate ReceiptPrinter
-            end
+            ATMController -> ReceiptPrinter : PrintReceipt("Balance: " + balance)
+            activate ReceiptPrinter
+            ReceiptPrinter --> ATMController
+            deactivate ReceiptPrinter
         end
-        
-        ATMController -> Screen : ShowMainMenu()
+        deactivate Keypad
     end
 
 deactivate ATMController

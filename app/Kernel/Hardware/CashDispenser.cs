@@ -1,6 +1,6 @@
 using ATM.Kernel.Common;
 
-namespace ATM.Contexts.Hardware;
+namespace ATM.Kernel.Hardware;
 
 public class CashDispenser { 
     private decimal _remaining;
@@ -34,3 +34,4 @@ public class CashDispenser {
 
     private void DispenseCash(decimal amount) => Logger.Log($"Выдано {amount:C}"); 
 }
+

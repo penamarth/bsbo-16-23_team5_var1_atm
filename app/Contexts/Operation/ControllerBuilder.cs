@@ -1,5 +1,5 @@
 using System.Reflection;
-using ATM.Contexts.Hardware;
+using ATM.Kernel.Hardware;
 using ATM.Contexts.Banking;
 using ATM.Kernel.UI;
 

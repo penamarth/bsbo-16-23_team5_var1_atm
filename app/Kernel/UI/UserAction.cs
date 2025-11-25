@@ -7,5 +7,6 @@ public enum UserAction {
     Deposit,
     Transfer,
     Exit,
-    Unknown 
+    Unknown
 }
+
