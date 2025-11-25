@@ -3,71 +3,80 @@ skinparam packageStyle rectangle
 skinparam classBackgroundColor White
 skinparam classBorderColor Black
 
-package "Common" {
-  class Logger <<static>>
-  enum LogLevel
-}
+package "Kernel" {
+    package "Common" {
+      class Logger <<static>>
+      enum LogLevel
+    }
 
-package "Models" {
-  class CardData
-  class Pin
-  class AccountId
-}
+    package "Models" {
+      class CardData
+      class Pin
+      class AccountId
+    }
 
-package "UI" {
-  class Screen
-  class Keypad
-  class MenuHandler
-  enum UserAction
-}
+    package "UI" {
+      class Screen
+      class Keypad
+      class MenuHandler
+      enum UserAction
+    }
 
-package "Hardware" {
-  class CardReader
-  class CashDispenser
-  class CashAcceptor
-  class ReceiptPrinter
-}
-
-package "Services.Api" {
-  interface IBankingService {
-    +Authenticate(card: CardData, pin: Pin) : (bool, AccountId?)
-    +GetBalance(account: AccountId) : decimal
-    +ExecuteWithdrawal(account: AccountId, amount: decimal) : bool
-    +ChangePin(card: CardData, oldPin: Pin, newPin: Pin) : bool
-    +Deposit(account: AccountId, amount: decimal) : bool
-    +Transfer(fromAccount: AccountId, toCardNumber: string, amount: decimal) : bool
+    package "Hardware" {
+      class CardReader
+      class CashDispenser
+      class CashAcceptor
+      class ReceiptPrinter
+    }
   }
-}
 
-package "Services.Impl" {
-  class BankingServiceClient
-}
+  package "Contexts" {
+    package "Banking" {
+      package "Api" {
+        interface IBankingService {
+          +Authenticate(card: CardData, pin: Pin) : (bool, AccountId?)
+          +GetBalance(account: AccountId) : decimal
+          +ExecuteWithdrawal(account: AccountId, amount: decimal) : bool
+          +ChangePin(card: CardData, oldPin: Pin, newPin: Pin) : bool
+          +Deposit(account: AccountId, amount: decimal) : bool
+          +Transfer(fromAccount: AccountId, toCardNumber: string, amount: decimal) : bool
+        }
+      }
+      package "Impl" {
+        class BankingServiceClient
+      }
+    }
 
-package "Core" {
-  class ATMController {
-    - _screen : Screen
-    - _keypad : Keypad
-    - _cardReader : CardReader
-    - _cashDispenser : CashDispenser
-    - _cashAcceptor : CashAcceptor
-    - _bankingService : IBankingService
-    - _menuHandler : MenuHandler
-    - _receiptPrinter : ReceiptPrinter
-    + Setup() : void
-    + Run() : void
-    + Shutdown() : void
-    - ProcessClientSession(cardData: CardData) : void
-    - AskAndMaybePrintReceipt(text: string) : void
-    - EndSession(cardData: CardData) : void
-  }
-  class ATMControllerBuilder
-  class MaintenanceController {
-    - _screen : Screen
-    - _keypad : Keypad
-    - _cashDispenser : CashDispenser
-    - _cashAcceptor : CashAcceptor
-    + AuthenticateCollector() : bool
-    + Run() : void
+    package "Operation" {
+      class ATMController {
+        - _screen : Screen
+        - _keypad : Keypad
+        - _cardReader : CardReader
+        - _cashDispenser : CashDispenser
+        - _cashAcceptor : CashAcceptor
+        - _bankingService : IBankingService
+        - _menuHandler : MenuHandler
+        - _receiptPrinter : ReceiptPrinter
+        + Setup() : void
+        + Run() : void
+        + Shutdown() : void
+        - ProcessClientSession(cardData: CardData) : void
+        - AskAndMaybePrintReceipt(text: string) : void
+        - EndSession(cardData: CardData) : void
+      }
+      class ATMControllerBuilder
+    }
+
+    package "Maintenance" {
+      class MaintenanceController {
+        - _screen : Screen
+        - _keypad : Keypad
+        - _cashDispenser : CashDispenser
+        - _cashAcceptor : CashAcceptor
+        + AuthenticateCollector() : bool
+        + Run() : void
+      }
+    }
   }
 }
 
@@ -81,6 +90,10 @@ ATMController o- CashAcceptor
 ATMController o- IBankingService
 ATMController o- MenuHandler
 ATMController o- ReceiptPrinter
+ATMController ..> UserAction
+ATMController ..> AccountId
+
+ATMControllerBuilder ..> ATMController : builds
 
 MaintenanceController o- Screen
 MaintenanceController o- Keypad
@@ -90,8 +103,6 @@ MaintenanceController o- CashAcceptor
 MenuHandler --> Screen
 MenuHandler --> Keypad
 
-ATMControllerBuilder ..> ATMController : builds
-
 CardReader ..> CardData
 Keypad ..> Pin
 
@@ -100,8 +111,6 @@ CashDispenser ..> Logger
 CashAcceptor ..> Logger
 ReceiptPrinter ..> Logger
 CardReader ..> Logger
-ATMController ..> UserAction
-ATMController ..> AccountId
 MaintenanceController ..> Logger
 
-@enduml 
+@enduml
