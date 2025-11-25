@@ -1,61 +1,81 @@
 @startuml
-title Диаграмма последовательности: Проверка баланса
+title Диаграмма последовательности: Проверка баланса (Check Balance)
+autonumber
 
-actor "Клиент" as Client
-participant "ATMController" as Controller
-participant "BankingService" as Banking
-participant "Screen" as Screen
-participant "ReceiptPrinter" as Printer
+actor "Клиент" as Customer
+participant Screen
+participant Keypad
+participant ATMController
+participant IBankingService
+participant ReceiptPrinter
 
-Client -> Controller: selectCheckBalance()
-activate Controller
+' --- Предусловие: Клиент аутентифицирован ---
 
-Controller -> Screen: displayMessage("Запрос баланса...")
-activate Screen
-Screen --> Controller: 
-deactivate Screen
+Customer -> Screen : Выбор "Проверить баланс"
+Screen -> ATMController : UserAction.CheckBalance
 
-Controller -> Banking: getBalance(accountId)
-activate Banking
+' --- Основной поток: Запрос баланса ---
+activate ATMController
 
-Banking -> Banking: queryDatabase(accountId)
-Banking --> Controller: balance
-deactivate Banking
-
-Controller -> Screen: displayMessage("Баланс: " + balance)
-activate Screen
-Screen --> Controller:
-deactivate Screen
-
-Controller -> Screen: displayMessage("Печать чека? (y/n)")
-activate Screen
-Screen --> Controller:
-deactivate Screen
-
-Client -> Controller: confirmPrint("y")
-
-alt Печать чека
-    Controller -> Printer: printBalanceReceipt(accountId, balance)
-    activate Printer
+    ATMController -> IBankingService : getBalance(accountId)
+    activate IBankingService
     
-    Printer -> Printer: formatReceipt()
-    Printer -> Printer: print()
-    
-    Printer --> Controller: success
-    deactivate Printer
-    
-    Controller -> Screen: displayMessage("Чек распечатан")
-    activate Screen
-    Screen --> Controller:
-    deactivate Screen
-else Отказ от печати
-    Controller -> Screen: displayMessage("Возврат в меню")
-    activate Screen
-    Screen --> Controller:
-    deactivate Screen
-end
+    alt Банковская система недоступна / Таймаут (Расширение 2а)
+        IBankingService -> ATMController : Timeout / ConnectionError
+        ATMController -> Screen : DisplayMessage("Ошибка связи. Попробуйте позже")
+        ATMController -> ATMController : ReturnToMenu()
+    else Ошибка банка (Расширение 3а)
+        IBankingService --> ATMController : BankingServiceException
+        deactivate IBankingService
+        ATMController -> Screen : DisplayMessage("Невозможно получить баланс")
+        ATMController -> ATMController : LogError()
+        ATMController -> ATMController : ReturnToMenu()
+    else Успешный ответ
+        IBankingService --> ATMController : balance (decimal)
+        deactivate IBankingService
+        
+        ' --- Отображение баланса ---
+        ATMController -> Screen : DisplayMessage("Текущий баланс: " + balance)
+        ATMController -> ATMController : LogTransaction(balanceRequest)
+        
+        ' --- Предложение печати чека ---
+        ATMController -> Screen : DisplayMessage("Печать чека? (y/n)")
+        
+        ' Ожидание ввода с таймаутом (Расширение 6а)
+        ATMController -> Keypad : WaitForInput(timeout=60s)
+        activate Keypad
+        
+        alt Таймаут ожидания ввода (Расширение 6а)
+            Keypad --> ATMController : Timeout
+            ATMController -> Screen : DisplayMessage("Таймаут. Возврат в меню")
+        else Клиент отказался (Расширение 7а)
+            Customer -> Keypad : Ввод "n"
+            Keypad --> ATMController : Input("n")
+            ATMController -> ATMController : ReturnToMenu()
+        else Клиент согласился (Основной сценарий)
+            Customer -> Keypad : Ввод "y"
+            Keypad --> ATMController : Input("y")
+            deactivate Keypad
+            
+            ' --- Печать чека ---
+            group Печать чека
+                ATMController -> ReceiptPrinter : printBalanceReceipt(details)
+                activate ReceiptPrinter
+                
+                alt Ошибки принтера (Расширения 9а, 9б)
+                    ReceiptPrinter --> ATMController : Error (NoPaper / HardwareFault)
+                    ATMController -> Screen : DisplayMessage("Принтер недоступен")
+                    ATMController -> ATMController : LogError(PrinterFault)
+                else Успешная печать
+                    ReceiptPrinter --> ATMController : true (Success)
+                    ATMController -> Screen : DisplayMessage("Заберите чек")
+                end
+                deactivate ReceiptPrinter
+            end
+        end
+        
+        ATMController -> Screen : ShowMainMenu()
+    end
 
-Controller --> Client: returnToMenu()
-deactivate Controller
-
+deactivate ATMController
 @enduml
