@@ -5,7 +5,9 @@ skinparam classBorderColor Black
 
 package "Kernel" {
     package "Common" {
-      class Logger <<static>>
+      class Logger <<static>> {
+        + Log(message: string, level: LogLevel = Info) : void
+      }
       enum LogLevel
     }
 
@@ -13,100 +15,143 @@ package "Kernel" {
       class CardData
       class Pin
       class AccountId
-    }
-
-    package "UI" {
-      class Screen
-      class Keypad
-      class MenuHandler
-      enum UserAction
+      class AtmSession
     }
 
     package "Hardware" {
-      class CardReader
-      class CashDispenser
-      class CashAcceptor
-      class ReceiptPrinter
+      class CardReader {
+        + ReadCard() : CardData
+      }
+      class CashDispenser {
+        + Remaining : decimal
+        + CanDispense(amount: decimal) : bool
+        + TryDispense(amount: decimal) : bool
+        + Refill(amount: decimal) : void
+      }
+      class CashAcceptor {
+        + AcceptCash() : decimal
+        + AcceptCash(predefinedAmount: decimal) : decimal
+        + EjectCash() : void
+        + CollectAllCash() : decimal
+      }
+      class ReceiptPrinter {
+        + PrintReceipt(text: string) : void
+      }
+    }
+
+    package "Storage" {
+      class LocalStorage {
+        + ResolvePath(fileName: string) : string
+        + LoadOrDefault<T>(fileName: string, defaultValue: T) : T
+        + Save<T>(fileName: string, data: T) : void
+      }
+      class OperationJournal {
+        + Entries : IReadOnlyList<OperationEntry>
+        + Add(entry: OperationEntry) : OperationEntry
+        + Persist() : void
+      }
+      class OperationEntry {
+        + Timestamp : DateTime
+        + Operation : string
+        + Status : OperationStatus
+        + CardNumberMasked : string
+        + AccountId : Guid?
+        + Amount : decimal?
+        + Details : string
+        + MaskCard(cardNumber: string) : string
+      }
+      enum OperationStatus
     }
   }
 
-  package "Contexts" {
-    package "Banking" {
-      package "Api" {
-        interface IBankingService {
-          +Authenticate(card: CardData, pin: Pin) : (bool, AccountId?)
-          +GetBalance(account: AccountId) : decimal
-          +ExecuteWithdrawal(account: AccountId, amount: decimal) : bool
-          +ChangePin(card: CardData, oldPin: Pin, newPin: Pin) : bool
-          +Deposit(account: AccountId, amount: decimal) : bool
-          +Transfer(fromAccount: AccountId, toCardNumber: string, amount: decimal) : bool
-        }
-      }
-      package "Impl" {
-        class BankingServiceClient
+package "Contexts" {
+  package "Banking" {
+    package "Api" {
+      interface IBankingService {
+        + Authenticate(card: CardData, pin: Pin) : (bool, AccountId?)
+        + GetBalance(account: AccountId) : decimal
+        + ExecuteWithdrawal(account: AccountId, amount: decimal) : bool
+        + ChangePin(card: CardData, oldPin: Pin, newPin: Pin) : bool
+        + Deposit(account: AccountId, amount: decimal) : bool
+        + Transfer(fromAccount: AccountId, toCardNumber: string, amount: decimal) : bool
       }
     }
-
-    package "Operation" {
-      class ATMController {
-        - _screen : Screen
-        - _keypad : Keypad
-        - _cardReader : CardReader
-        - _cashDispenser : CashDispenser
-        - _cashAcceptor : CashAcceptor
-        - _bankingService : IBankingService
-        - _menuHandler : MenuHandler
-        - _receiptPrinter : ReceiptPrinter
-        + Setup() : void
-        + Run() : void
-        + Shutdown() : void
-        - ProcessClientSession(cardData: CardData) : void
-        - AskAndMaybePrintReceipt(text: string) : void
-        - EndSession(cardData: CardData) : void
+    package "Impl" {
+      class BankingServiceClient {
+        + Authenticate(card: CardData, pin: Pin) : (bool, AccountId?)
+        + GetBalance(account: AccountId) : decimal
+        + ExecuteWithdrawal(account: AccountId, amount: decimal) : bool
+        + ChangePin(card: CardData, oldPin: Pin, newPin: Pin) : bool
+        + Deposit(account: AccountId, amount: decimal) : bool
+        + Transfer(fromAccount: AccountId, toCardNumber: string, amount: decimal) : bool
       }
-      class ATMControllerBuilder
     }
+  }
 
-    package "Maintenance" {
-      class MaintenanceController {
-        - _screen : Screen
-        - _keypad : Keypad
-        - _cashDispenser : CashDispenser
-        - _cashAcceptor : CashAcceptor
-        + AuthenticateCollector() : bool
-        + Run() : void
-      }
+  package "Operation" {
+    class ATMController {
+      - _cardReader : CardReader
+      - _cashDispenser : CashDispenser
+      - _cashAcceptor : CashAcceptor
+      - _bankingService : IBankingService
+      - _receiptPrinter : ReceiptPrinter
+      - _operationJournal : OperationJournal
+      - _currentSession : AtmSession?
+      + Setup() : void
+      + StartSession(card: CardData, pin: Pin) : AtmSession?
+      + CheckBalance(session: AtmSession) : decimal
+      + Withdraw(session: AtmSession, amount: decimal) : bool
+      + Deposit(session: AtmSession, amount: decimal, cashAlreadyAccepted: bool=false) : bool
+      + Transfer(session: AtmSession, toCard: string, amount: decimal) : bool
+      + ChangePin(card: CardData, oldPin: Pin, newPin: Pin) : bool
+      + PrintJournal() : void
+      + EndSession(cardNumber: string?) : void
+    }
+    class ATMControllerBuilder {
+      + WithCardReader(CardReader) : ATMControllerBuilder
+      + WithCashDispenser(CashDispenser) : ATMControllerBuilder
+      + WithCashAcceptor(CashAcceptor) : ATMControllerBuilder
+      + WithBankingService(IBankingService) : ATMControllerBuilder
+      + WithReceiptPrinter(ReceiptPrinter) : ATMControllerBuilder
+      + WithOperationJournal(OperationJournal) : ATMControllerBuilder
+      + Build() : ATMController
+    }
+  }
+
+  package "Maintenance" {
+    class MaintenanceController {
+      - _cashDispenser : CashDispenser
+      - _cashAcceptor : CashAcceptor
+      + AuthenticateCollector(code: string) : bool
+      + RefillDispenser(amount: decimal) : void
+      + CollectAcceptor() : decimal
+      + CheckStatus() : void
     }
   }
 }
 
 BankingServiceClient -|> IBankingService
 
-ATMController o- Screen
-ATMController o- Keypad
 ATMController o- CardReader
 ATMController o- CashDispenser
 ATMController o- CashAcceptor
 ATMController o- IBankingService
-ATMController o- MenuHandler
 ATMController o- ReceiptPrinter
-ATMController ..> UserAction
+ATMController o- OperationJournal
+ATMController ..> AtmSession
 ATMController ..> AccountId
 
 ATMControllerBuilder ..> ATMController : builds
 
-MaintenanceController o- Screen
-MaintenanceController o- Keypad
+OperationJournal o- LocalStorage
+OperationJournal ..> OperationEntry
+OperationEntry ..> OperationStatus
+
 MaintenanceController o- CashDispenser
 MaintenanceController o- CashAcceptor
 
-MenuHandler --> Screen
-MenuHandler --> Keypad
-
 CardReader ..> CardData
-Keypad ..> Pin
 
-Screen ..> Logger
 CashDispenser ..> Logger
 CashAcceptor ..> Logger
 ReceiptPrinter ..> Logger

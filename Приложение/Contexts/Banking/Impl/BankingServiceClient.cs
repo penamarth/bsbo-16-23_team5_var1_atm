@@ -1,24 +1,55 @@
 using ATM.Kernel.Common;
 using ATM.Kernel.Models;
-using ATM.Contexts.Banking;
+using ATM.Kernel.Storage;
 
 namespace ATM.Contexts.Banking;
 
 public class BankingServiceClient : IBankingService
 {
-    private readonly Dictionary<Guid, decimal> _accountBalances = new();
-    private readonly Dictionary<Guid, (DateOnly Date, decimal Withdrawn)> _dailyWithdrawals = new();
+    private readonly LocalStorage _storage;
+    private readonly Dictionary<Guid, decimal> _accountBalances;
+    private readonly Dictionary<Guid, (DateOnly Date, decimal Withdrawn)> _dailyWithdrawals;
+    private readonly Dictionary<string, Guid> _cardBindings;
+    private readonly Dictionary<string, string> _cardPins;
+
     private const decimal DefaultInitialBalance = 15000m;
     private const decimal DailyLimit = 10000m; 
+    private const string AccountsFile = "bank_accounts.json";
+    private const string WithdrawalsFile = "bank_daily_withdrawals.json";
+    private const string CardBindingsFile = "bank_card_bindings.json";
+    private const string CardPinsFile = "bank_card_pins.json";
+
+    public BankingServiceClient(LocalStorage? storage = null)
+    {
+        _storage = storage ?? new LocalStorage();
+        _accountBalances = _storage.LoadOrDefault(AccountsFile, new Dictionary<Guid, decimal>());
+        _dailyWithdrawals = _storage.LoadOrDefault(WithdrawalsFile, new Dictionary<Guid, (DateOnly, decimal)>());
+        _cardBindings = _storage.LoadOrDefault(CardBindingsFile, new Dictionary<string, Guid>());
+        _cardPins = _storage.LoadOrDefault(CardPinsFile, new Dictionary<string, string>());
+    }
 
     public (bool IsAuthenticated, AccountId? AccountId) Authenticate(CardData cardData, Pin pin) {
         Logger.Log($"Аутентификация для карты {cardData.CardNumber}...");
-        var accountId = new AccountId(Guid.NewGuid());
-        if (!_accountBalances.ContainsKey(accountId.Value))
+
+        if (!_cardBindings.TryGetValue(cardData.CardNumber, out var accountGuid))
         {
-            _accountBalances[accountId.Value] = DefaultInitialBalance;
+            accountGuid = Guid.NewGuid();
+            _cardBindings[cardData.CardNumber] = accountGuid;
+            _accountBalances[accountGuid] = DefaultInitialBalance;
+            _cardPins[cardData.CardNumber] = pin.Value;
+            Persist();
+            Logger.Log("Создан новый счет и сохранен в локальном хранилище.");
         }
-        return (true, accountId);
+
+        var storedPin = _cardPins.GetValueOrDefault(cardData.CardNumber);
+        var isAuthenticated = storedPin == pin.Value;
+        if (!isAuthenticated)
+        {
+            Logger.Log("Ошибка аутентификации: неверный PIN.", LogLevel.Warning);
+            return (false, null);
+        }
+
+        return (true, new AccountId(accountGuid));
     }
 
     public decimal GetBalance(AccountId accountId) {
@@ -53,11 +84,21 @@ public class BankingServiceClient : IBankingService
 
         _accountBalances[accountId.Value] = balance - amount;
         _dailyWithdrawals[accountId.Value] = (today, daily + amount);
+        Persist();
         return true;
     }
 
     public bool ChangePin(CardData cardData, Pin oldPin, Pin newPin) {
         Logger.Log($"Смена PIN для карты {cardData.CardNumber}...");
+        var storedPin = _cardPins.GetValueOrDefault(cardData.CardNumber);
+        if (storedPin != oldPin.Value)
+        {
+            Logger.Log("Смена PIN отклонена: старый PIN не совпал.", LogLevel.Warning);
+            return false;
+        }
+
+        _cardPins[cardData.CardNumber] = newPin.Value;
+        Persist();
         return true;
     }
 
@@ -69,6 +110,7 @@ public class BankingServiceClient : IBankingService
             _accountBalances[accountId.Value] = 0m;
         }
         _accountBalances[accountId.Value] += amount;
+        Persist();
         return true;
     }
 
@@ -82,7 +124,20 @@ public class BankingServiceClient : IBankingService
             return false;
         }
 
-        _accountBalances[fromAccount.Value] -= amount;
+        _accountBalances[fromAccount.Value] = balance - amount;
+        if (_cardBindings.TryGetValue(toCardNumber, out var toAccount))
+        {
+            _accountBalances[toAccount] = _accountBalances.GetValueOrDefault(toAccount, 0m) + amount;
+        }
+        Persist();
         return true;
+    }
+
+    private void Persist()
+    {
+        _storage.Save(AccountsFile, _accountBalances);
+        _storage.Save(WithdrawalsFile, _dailyWithdrawals);
+        _storage.Save(CardBindingsFile, _cardBindings);
+        _storage.Save(CardPinsFile, _cardPins);
     }
 }

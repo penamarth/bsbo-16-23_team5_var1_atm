@@ -9,7 +9,17 @@ public class CashAcceptor {
         Logger.Log("Вставьте купюры...");
         Console.Write("Введите сумму внесенных средств: ");
         string? input = Console.ReadLine();
-        if (decimal.TryParse(input, out decimal amount) && amount > 0) {
+        return AcceptCashInternal(input);
+    }
+
+    public decimal AcceptCash(decimal predefinedAmount)
+    {
+        return AcceptCashInternal(predefinedAmount.ToString());
+    }
+
+    private decimal AcceptCashInternal(string? amountRaw)
+    {
+        if (decimal.TryParse(amountRaw, out decimal amount) && amount > 0) {
             _totalAmount += amount;
             Logger.Log($"Принято: {amount:C}");
             return amount;
