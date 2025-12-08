@@ -137,15 +137,6 @@ public class ATMController {
             Logger.Log($"{entry.Timestamp:HH:mm:ss} {entry.Operation} {entry.Status} {entry.Amount?.ToString("C") ?? "-"} {entry.CardNumberMasked} {entry.Details}");
         }
     }
-    
-    public void PrintJournal()
-    {
-        Logger.Log("=== ЖУРНАЛ ОПЕРАЦИЙ ===");
-        foreach (var entry in _operationJournal.Entries)
-        {
-            Logger.Log($"{entry.Timestamp:HH:mm:ss} {entry.Operation} {entry.Status} {entry.Amount?.ToString("C") ?? "-"} {entry.CardNumberMasked} {entry.Details}");
-        }
-    }
 
     public void Shutdown() {
         Logger.Log("Завершение работы банкомата...", LogLevel.Warning);
