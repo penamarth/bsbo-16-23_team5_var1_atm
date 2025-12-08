@@ -1,80 +1,20 @@
 @startuml
-title Диаграмма последовательности: Смена PIN
+title Смена PIN (backend)
+actor Клиент as Client
+participant ATMController as Controller
+participant BankingServiceClient as Banking
+participant OperationJournal as Journal
 
-actor "Клиент" as Client
-participant "ATMController" as Controller
-participant "Screen" as Screen
-participant "Keypad" as Keypad
-participant "BankingService" as Banking
+Client -> Controller: ChangePin(cardData, oldPin, newPin)
+Controller -> Banking: ChangePin(cardData, oldPin, newPin)
+Banking --> Controller: success?
 
-Client -> Controller: selectChangePin()
-activate Controller
-
-Controller -> Screen: DisplayMessage("Введите новый PIN")
-activate Screen
-Screen --> Controller:
-deactivate Screen
-
-Controller -> Keypad: GetPinInput(timeout=60s)
-activate Keypad
-
-alt Таймаут ввода
-    Keypad --> Controller: null
-    Controller -> Screen: DisplayMessage("Таймаут ввода. Возврат в меню.")
-    deactivate Keypad
-    Controller --> Client: returnToMenu()
-else Введен PIN
-    Client -> Keypad: Ввод нового PIN
-    Keypad --> Controller: newPin
-    deactivate Keypad
-    
-    Controller -> Screen: DisplayMessage("Подтвердите новый PIN")
-    activate Screen
-    Screen --> Controller:
-    deactivate Screen
-    
-    Controller -> Keypad: GetPinInput(timeout=60s)
-    activate Keypad
-    
-    alt Таймаут подтверждения
-        Keypad --> Controller: null
-        Controller -> Screen: DisplayMessage("Таймаут ввода. Возврат в меню.")
-        deactivate Keypad
-        Controller --> Client: returnToMenu()
-    else Введено подтверждение
-        Client -> Keypad: Ввод подтверждения PIN
-        Keypad --> Controller: confirmPin
-        deactivate Keypad
-        
-        Controller -> Controller: verifyPinMatch(newPin, confirmPin)
-        
-        alt PIN совпадают
-            Controller -> Banking: ChangePin(cardData, oldPin, newPin)
-            activate Banking
-            Banking --> Controller: success
-            deactivate Banking
-            
-            alt Успешная смена
-                Controller -> Screen: DisplayMessage("PIN успешно изменен!")
-                activate Screen
-                Screen --> Controller:
-                deactivate Screen
-            else Ошибка смены
-                Controller -> Screen: DisplayMessage("Ошибка при смене PIN.")
-                activate Screen
-                Screen --> Controller:
-                deactivate Screen
-            end
-        else PIN не совпадают
-            Controller -> Screen: DisplayMessage("PIN-коды не совпадают. Операция отменена.")
-            activate Screen
-            Screen --> Controller:
-            deactivate Screen
-        end
-    end
+alt Успех
+    Controller -> Journal: Add(CHANGE_PIN, Success)
+    Controller --> Client: true
+else Старый PIN не совпал
+    Controller -> Journal: Add(CHANGE_PIN, Failed, "Смена PIN отклонена")
+    Controller --> Client: false
 end
-
-Controller --> Client: returnToMenu()
-deactivate Controller
-
 @enduml
+

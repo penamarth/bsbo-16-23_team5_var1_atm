@@ -1,84 +1,41 @@
 @startuml
-title Диаграмма последовательности: Снятие наличных
+title Снятие наличных (backend)
+actor Клиент as Client
+participant ATMController as Controller
+participant CashDispenser as Dispenser
+participant BankingServiceClient as Banking
+participant OperationJournal as Journal
+participant ReceiptPrinter as Printer
 
-actor "Клиент" as Client
-participant "ATMController" as Controller
-participant "Screen" as Screen
-participant "Keypad" as Keypad
-participant "BankingService" as Banking
-participant "CashDispenser" as Dispenser
-participant "ReceiptPrinter" as Printer
+Client -> Controller: Withdraw(session, amount)
+Controller -> Dispenser: CanDispense(amount)
+Dispenser --> Controller: canDispense
 
-Client -> Controller: selectWithdraw()
-activate Controller
+alt Нет нужной суммы в диспенсере
+    Controller -> Journal: Add(WITHDRAWAL, Failed, "В банкомате нет нужной суммы")
+    Controller --> Client: false
+else
+    Controller -> Banking: ExecuteWithdrawal(accountId, amount)
+    Banking --> Controller: approved?
 
-Controller -> Screen: DisplayMessage("Введите сумму для снятия:")
-activate Screen
-Screen --> Controller:
-deactivate Screen
+    alt Отклонено (баланс/лимит/сумма)
+        Controller -> Journal: Add(WITHDRAWAL, Failed, "Отклонено банковской системой")
+        Controller --> Client: false
+    else Одобрено
+        Controller -> Dispenser: TryDispense(amount)
+        Dispenser --> Controller: dispensed?
 
-Controller -> Keypad: GetInput(timeout=60s)
-activate Keypad
-
-alt Таймаут ввода суммы
-    Keypad --> Controller: null
-    Controller -> Screen: DisplayMessage("Таймаут ввода суммы. Возврат в меню.")
-    deactivate Keypad
-    Controller --> Client: returnToMenu()
-else Введена сумма
-    Client -> Keypad: Ввод суммы
-    Keypad --> Controller: amountStr
-    deactivate Keypad
-
-Controller -> Controller: TryParse(amountStr, out amount)
-
-alt Неверный формат суммы
-    Controller -> Screen: DisplayMessage("Неверный формат суммы.")
-else Валидная сумма
-    Controller -> Dispenser: CanDispense(amount)
-    activate Dispenser
-    Dispenser --> Controller: true/false
-    deactivate Dispenser
-    
-    alt Недостаточно наличности в банкомате
-        Controller -> Screen: DisplayMessage("Недостаточно наличности в банкомате.")
-    else Банкомат может выдать
-        Controller -> Banking: ExecuteWithdrawal(accountId, amount)
-        activate Banking
-        Banking --> Controller: success/false
-        deactivate Banking
-        
-        alt Операция отклонена (баланс/лимит)
-            Controller -> Screen: DisplayMessage("Операция отклонена (баланс/лимит).")
-        else Операция одобрена
-            Controller -> Dispenser: TryDispense(amount)
-            activate Dispenser
-            Dispenser --> Controller: success
-            deactivate Dispenser
-            
-            ' --- Предложение печати чека ---
-            Controller -> Screen: DisplayMessage("Печать чека? (y/n)")
-            Controller -> Keypad: GetInput(timeout=60s)
-            activate Keypad
-            
-            alt Клиент согласился
-                Client -> Keypad: Ввод "y"
-                Keypad --> Controller: "y"
-                deactivate Keypad
-                
-                Controller -> Printer: PrintReceipt("Withdrawn: " + amount)
-                activate Printer
-                Printer --> Controller
-                deactivate Printer
-            else Клиент отказался или таймаут
-                Keypad --> Controller: "n" или null
-                deactivate Keypad
+        alt Выдано успешно
+            Controller -> Journal: Add(WITHDRAWAL, Success, "Остаток: " + Dispenser.Remaining)
+            opt Печать чека (внешний сценарий)
+                Controller -> Printer: PrintReceipt("Withdraw " + amount)
             end
+            Controller --> Client: true
+        else Ошибка диспенсера
+            Controller -> Journal: Add(WITHDRAWAL, Failed, "Ошибка диспенсера")
+            Controller --> Client: false
         end
     end
 end
-
-Controller --> Client: returnToMenu()
-deactivate Controller
-
 @enduml
+

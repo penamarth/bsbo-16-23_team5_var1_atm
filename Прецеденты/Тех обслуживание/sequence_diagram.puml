@@ -1,137 +1,36 @@
 @startuml
-title Диаграмма последовательности: Техническое обслуживание
+title Техническое обслуживание (backend)
+actor Инкассатор as Technician
+participant MaintenanceController as Controller
+participant CashDispenser as Dispenser
+participant CashAcceptor as Acceptor
+participant Logger as Log
 
-actor "Техник" as Technician
-participant "MaintenanceController" as Controller
-participant "Screen" as Screen
-participant "Keypad" as Keypad
-participant "CashDispenser" as Dispenser
-participant "CashAcceptor" as Acceptor
-participant "Logger" as Logger
-
-Technician -> Controller: Run()
-activate Controller
-
-Controller -> Controller: AuthenticateCollector()
-activate Controller
-
-Controller -> Screen: DisplayMessage("=== РЕЖИМ ОБСЛУЖИВАНИЯ ===")
-activate Screen
-Screen --> Controller:
-deactivate Screen
-
-Controller -> Screen: DisplayMessage("Введите сервисный код:")
-activate Screen
-Screen --> Controller:
-deactivate Screen
-
-Controller -> Keypad: GetInput()
-activate Keypad
-Technician -> Keypad: Ввод кода "9999"
-Keypad --> Controller: "9999"
-deactivate Keypad
-
-Controller -> Controller: Проверка кода (serviceCode == "9999")
+Technician -> Controller: AuthenticateCollector(code)
+Controller -> Controller: code == "9999" ?
 
 alt Код верный
-    Controller -> Logger: Log("Инкассатор успешно аутентифицирован.")
-    activate Logger
-    Logger --> Controller:
-    deactivate Logger
-    
-    loop Пока не завершено
-        Controller -> Screen: DisplayMessage("=== МЕНЮ ОБСЛУЖИВАНИЯ ===")
-        activate Screen
-        Screen --> Controller:
-        deactivate Screen
-        
-        Controller -> Screen: DisplayMessage("1. Пополнить диспенсер")
-        Controller -> Screen: DisplayMessage("2. Инкассировать купюроприемник")
-        Controller -> Screen: DisplayMessage("3. Проверить состояние")
-        Controller -> Screen: DisplayMessage("4. Завершить обслуживание")
-        
-        Controller -> Keypad: GetInput()
-        activate Keypad
-        Technician -> Keypad: Ввод выбора
-        Keypad --> Controller: choice
-        deactivate Keypad
-        
-        alt Пополнить диспенсер (choice == "1")
-            Controller -> Screen: DisplayMessage("Введите сумму для загрузки в диспенсер:")
-            activate Screen
-            Screen --> Controller:
-            deactivate Screen
-            
-            Controller -> Keypad: GetInput()
-            activate Keypad
-            Technician -> Keypad: Ввод суммы
-            Keypad --> Controller: amountStr
-            deactivate Keypad
-            
-            Controller -> Controller: TryParse(amountStr, out amount)
-            
-            alt Некорректная сумма
-                Controller -> Screen: DisplayMessage("Некорректная сумма.")
-            else Валидная сумма
-                Controller -> Dispenser: Refill(amount)
-                activate Dispenser
-                Dispenser --> Controller
-                deactivate Dispenser
-                
-                Controller -> Screen: DisplayMessage("Диспенсер пополнен на " + amount)
-                Controller -> Screen: DisplayMessage("Текущий остаток: " + Dispenser.Remaining)
-            end
-            
-        else Инкассировать купюроприемник (choice == "2")
-            Controller -> Acceptor: CollectAllCash()
-            activate Acceptor
-            Acceptor --> Controller: collectedAmount
-            deactivate Acceptor
-            
-            Controller -> Screen: DisplayMessage("Изъято из купюроприемника: " + collectedAmount)
-            activate Screen
-            Screen --> Controller:
-            deactivate Screen
-            
-        else Проверить состояние (choice == "3")
-            Controller -> Screen: DisplayMessage("=== СТАТУС УСТРОЙСТВ ===")
-            Controller -> Screen: DisplayMessage("Диспенсер: " + Dispenser.Remaining)
-            Controller -> Screen: DisplayMessage("Купюроприемник: готов к работе")
-            Controller -> Screen: DisplayMessage("Принтер: готов к работе")
-            Controller -> Screen: DisplayMessage("Кардридер: готов к работе")
-            activate Screen
-            Screen --> Controller:
-            deactivate Screen
-            
-        else Завершить обслуживание (choice == "4")
-            Controller -> Screen: DisplayMessage("Обслуживание завершено.")
-            activate Screen
-            Screen --> Controller:
-            deactivate Screen
-            
-            Controller -> Logger: Log("Сессия обслуживания завершена.")
-            activate Logger
-            Logger --> Controller:
-            deactivate Logger
-            
-            Controller -> Controller: sessionActive = false
-        else Неверный выбор
-            Controller -> Screen: DisplayMessage("Неверный выбор.")
-        end
-    end
-    deactivate Controller
-    
-else Неверный код
-    Controller -> Logger: Log("Ошибка аутентификации инкассатора.", LogLevel.Warning)
-    activate Logger
-    Logger --> Controller:
-    deactivate Logger
-    
-    Controller -> Screen: DisplayMessage("Неверный код. Доступ запрещен.")
-    activate Screen
-    Screen --> Controller:
-    deactivate Screen
-    deactivate Controller
-end
+    Controller -> Log: "Инкассатор успешно аутентифицирован."
 
+    opt Пополнить диспенсер
+        Technician -> Controller: RefillDispenser(amount)
+        Controller -> Dispenser: Refill(amount)
+        Dispenser --> Controller
+        Controller -> Log: "Диспенсер пополнен, остаток: " + Dispenser.Remaining
+    end
+
+    opt Инкассировать купюроприемник
+        Technician -> Controller: CollectAcceptor()
+        Controller -> Acceptor: CollectAllCash()
+        Acceptor --> Controller: collected
+        Controller -> Log: "Изъято " + collected
+    end
+
+    Technician -> Controller: CheckStatus()
+    Controller -> Log: "Диспенсер: " + Dispenser.Remaining
+    Controller -> Log: "Купюроприемник/Принтер/Кардридер: готов"
+else Код неверный
+    Controller -> Log: "Ошибка аутентификации инкассатора." (Warning)
+end
 @enduml
+

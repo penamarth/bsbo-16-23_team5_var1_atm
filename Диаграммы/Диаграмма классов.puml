@@ -1,8 +1,14 @@
 @startuml
+scale 0.75
+
 skinparam packageStyle rectangle
 skinparam classBackgroundColor White
 skinparam classBorderColor Black
+top to bottom direction
+skinparam ranksep 25
+skinparam nodesep 20
 
+together {
 package "Kernel" {
     package "Common" {
       class Logger <<static>> {
@@ -62,7 +68,8 @@ package "Kernel" {
       }
       enum OperationStatus
     }
-  }
+}
+}
 
 package "Contexts" {
   package "Banking" {
@@ -131,6 +138,7 @@ package "Contexts" {
 }
 
 BankingServiceClient -|> IBankingService
+BankingServiceClient o- LocalStorage
 
 ATMController o- CardReader
 ATMController o- CashDispenser
@@ -138,6 +146,8 @@ ATMController o- CashAcceptor
 ATMController o- IBankingService
 ATMController o- ReceiptPrinter
 ATMController o- OperationJournal
+ATMController ..> CardData
+ATMController ..> Pin
 ATMController ..> AtmSession
 ATMController ..> AccountId
 
@@ -157,5 +167,4 @@ CashAcceptor ..> Logger
 ReceiptPrinter ..> Logger
 CardReader ..> Logger
 MaintenanceController ..> Logger
-
 @enduml

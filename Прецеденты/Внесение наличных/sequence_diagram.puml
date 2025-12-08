@@ -1,108 +1,37 @@
 @startuml
-title Диаграмма последовательности: Внесение наличных (Deposit)
-autonumber
+title Внесение наличных (backend)
+actor Клиент as Client
+participant ATMController as Controller
+participant CashAcceptor as Acceptor
+participant BankingServiceClient as Banking
+participant OperationJournal as Journal
+participant ReceiptPrinter as Printer
 
-actor "Клиент" as Customer
-participant "ATMController" as Controller
-participant "Screen" as Screen
-participant "Keypad" as Keypad
-participant "CashAcceptor" as Acceptor
-participant "IBankingService" as Banking
-participant "ReceiptPrinter" as Printer
+Client -> Controller: Deposit(session, amount, cashAlreadyAccepted)
+Controller -> Controller: amount > 0 ?
+alt amount <= 0
+    Controller -> Journal: Add(DEPOSIT, Failed)
+    Controller --> Client: false
+else amount > 0
+    opt cashAlreadyAccepted == false
+        Controller -> Acceptor: AcceptCash(amount)
+        Acceptor --> Controller: acceptedAmount
+    end
 
-' --- Предусловие: Клиент аутентифицирован ---
+    Controller -> Banking: Deposit(accountId, amount)
+    Banking --> Controller: success?
 
-Customer -> Controller: selectDeposit()
-activate Controller
-
-' --- Основной поток: Внесение наличных ---
-Controller -> Screen: DisplayMessage("Внесение наличных. Вставьте купюры.")
-activate Screen
-Screen --> Controller:
-deactivate Screen
-
-Controller -> Acceptor: AcceptCash()
-activate Acceptor
-Acceptor -> Acceptor: Ожидание ввода суммы
-Acceptor --> Controller: amount
-deactivate Acceptor
-
-alt Сумма <= 0 или отмена
-    Controller -> Screen: DisplayMessage("Операция отменена.")
-    activate Screen
-    Screen --> Controller:
-    deactivate Screen
-    Controller --> Customer: returnToMenu()
-else Сумма > 0
-    Controller -> Screen: DisplayMessage("Принято: " + amount + ". Подтвердить? (y/n)")
-    activate Screen
-    Screen --> Controller:
-    deactivate Screen
-    
-    Controller -> Keypad: GetInput(timeout=60s)
-    activate Keypad
-    
-    alt Таймаут ввода
-        Keypad --> Controller: null
-        Controller -> Screen: DisplayMessage("Таймаут. Возврат в меню.")
+    alt Ошибка зачисления
         Controller -> Acceptor: EjectCash()
-        deactivate Keypad
-        Controller --> Customer: returnToMenu()
-    else Клиент отказался
-        Customer -> Keypad: Ввод "n"
-        Keypad --> Controller: "n"
-        deactivate Keypad
-        Controller -> Screen: DisplayMessage("Операция отменена. Возврат средств.")
-        Controller -> Acceptor: EjectCash()
-        activate Acceptor
-        Acceptor --> Controller
-        deactivate Acceptor
-    else Клиент подтвердил
-        Customer -> Keypad: Ввод "y"
-        Keypad --> Controller: "y"
-        deactivate Keypad
-        
-        Controller -> Banking: Deposit(accountId, amount)
-        activate Banking
-        Banking --> Controller: success/false
-        deactivate Banking
-        
-        alt Ошибка зачисления
-            Controller -> Screen: DisplayMessage("Ошибка зачисления.")
-            Controller -> Acceptor: EjectCash()
-            activate Acceptor
-            Acceptor --> Controller
-            deactivate Acceptor
-        else Успешное зачисление
-            Controller -> Screen: DisplayMessage("Средства успешно зачислены: " + amount)
-            activate Screen
-            Screen --> Controller:
-            deactivate Screen
-            
-            ' --- Предложение печати чека ---
-            Controller -> Screen: DisplayMessage("Печать чека? (y/n)")
-            Controller -> Keypad: GetInput(timeout=60s)
-            activate Keypad
-            
-            alt Клиент согласился
-                Customer -> Keypad: Ввод "y"
-                Keypad --> Controller: "y"
-                deactivate Keypad
-                
-                Controller -> Printer: PrintReceipt("Deposited: " + amount)
-                activate Printer
-                Printer --> Controller
-                deactivate Printer
-            else Клиент отказался или таймаут
-                Keypad --> Controller: "n" или null
-                deactivate Keypad
-            end
+        Controller -> Journal: Add(DEPOSIT, Failed)
+        Controller --> Client: false
+    else Успех
+        Controller -> Journal: Add(DEPOSIT, Success)
+        opt Печать чека (внешний сценарий)
+            Controller -> Printer: PrintReceipt("Deposit " + amount)
         end
+        Controller --> Client: true
     end
 end
-
-Controller --> Customer: returnToMenu()
-deactivate Controller
-
 @enduml
 
