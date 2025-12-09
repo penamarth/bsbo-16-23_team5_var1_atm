@@ -31,55 +31,68 @@ public class ATMController {
 
     public AtmSession? StartSession(CardData cardData, Pin pin)
     {
+        var maskedCard = OperationEntry.MaskCard(cardData.CardNumber);
+        Logger.Log($"Запуск сессии для карты {maskedCard}...");
         var auth = _bankingService.Authenticate(cardData, pin);
         if (!(auth.IsAuthenticated && auth.AccountId.HasValue))
         {
             _operationJournal.Add(OperationEntry.Create("AUTH", OperationStatus.Failed, cardData.CardNumber, null, null, "Неверный PIN"));
+            Logger.Log("Сессия не создана: аутентификация не пройдена.", LogLevel.Warning);
             return null;
         }
 
         var session = new AtmSession(auth.AccountId.Value, cardData, pin);
         _currentSession = session;
         _operationJournal.Add(OperationEntry.Create("AUTH", OperationStatus.Success, cardData.CardNumber, auth.AccountId.Value.Value, null, "Аутентификация успешна"));
+        Logger.Log($"Сессия создана для карты {maskedCard}.");
         return session;
     }
 
     public decimal CheckBalance(AtmSession session)
     {
+        Logger.Log("Запрос баланса (контроллер)...");
         var balance = _bankingService.GetBalance(session.AccountId);
         _operationJournal.Add(OperationEntry.Create("CHECK_BALANCE", OperationStatus.Success, session.Card.CardNumber, session.AccountId.Value, balance, "Баланс получен"));
+        Logger.Log($"Баланс карты: {balance:C}");
         return balance;
     }
 
     public bool Withdraw(AtmSession session, decimal amount)
     {
+        Logger.Log($"Запрос на снятие {amount:C}...");
         if (!_cashDispenser.CanDispense(amount))
         {
             _operationJournal.Add(OperationEntry.Create("WITHDRAWAL", OperationStatus.Failed, session.Card.CardNumber, session.AccountId.Value, amount, "В банкомате нет нужной суммы"));
+            Logger.Log("Снятие отклонено: недостаточно наличности в банкомате.", LogLevel.Warning);
             return false;
         }
 
         if (!_bankingService.ExecuteWithdrawal(session.AccountId, amount))
         {
             _operationJournal.Add(OperationEntry.Create("WITHDRAWAL", OperationStatus.Failed, session.Card.CardNumber, session.AccountId.Value, amount, "Отклонено банковской системой"));
+            Logger.Log("Снятие отклонено банковской системой.", LogLevel.Warning);
             return false;
         }
 
         if (_cashDispenser.TryDispense(amount))
         {
             _operationJournal.Add(OperationEntry.Create("WITHDRAWAL", OperationStatus.Success, session.Card.CardNumber, session.AccountId.Value, amount, $"Остаток банкомата: {_cashDispenser.Remaining:C}"));
+            Logger.Log($"Снятие выполнено: {amount:C}. Остаток банкомата: {_cashDispenser.Remaining:C}");
             return true;
         }
 
         _operationJournal.Add(OperationEntry.Create("WITHDRAWAL", OperationStatus.Failed, session.Card.CardNumber, session.AccountId.Value, amount, "Ошибка диспенсера"));
+        Logger.Log("Снятие не выполнено: ошибка диспенсера.", LogLevel.Warning);
         return false;
     }
 
     public bool Deposit(AtmSession session, decimal amount, bool cashAlreadyAccepted = false)
     {
+        Logger.Log($"Запрос на внесение {amount:C}...");
         if (amount <= 0)
         {
             _operationJournal.Add(OperationEntry.Create("DEPOSIT", OperationStatus.Failed, session.Card.CardNumber, session.AccountId.Value, amount, "Сумма некорректна"));
+            Logger.Log("Внесение отклонено: сумма некорректна.", LogLevel.Warning);
             return false;
         }
 
@@ -91,19 +104,23 @@ public class ATMController {
         if (_bankingService.Deposit(session.AccountId, amount))
         {
             _operationJournal.Add(OperationEntry.Create("DEPOSIT", OperationStatus.Success, session.Card.CardNumber, session.AccountId.Value, amount, "Средства зачислены"));
+            Logger.Log($"Внесение выполнено: {amount:C}");
             return true;
         }
 
         _cashAcceptor.EjectCash();
         _operationJournal.Add(OperationEntry.Create("DEPOSIT", OperationStatus.Failed, session.Card.CardNumber, session.AccountId.Value, amount, "Ошибка зачисления"));
+        Logger.Log("Внесение отменено: ошибка зачисления, средства возвращены.", LogLevel.Warning);
         return false;
     }
 
     public bool Transfer(AtmSession session, string toCardNumber, decimal amount)
     {
+        Logger.Log($"Запрос на перевод {amount:C} на карту {toCardNumber}...");
         if (amount <= 0)
         {
             _operationJournal.Add(OperationEntry.Create("TRANSFER", OperationStatus.Failed, session.Card.CardNumber, session.AccountId.Value, amount, "Некорректная сумма"));
+            Logger.Log("Перевод отклонен: некорректная сумма.", LogLevel.Warning);
             return false;
         }
 
@@ -117,13 +134,16 @@ public class ATMController {
             ok ? $"Перевод на {toCardNumber}" : "Отклонено (недостаточно средств)")
         );
         if (!ok) Logger.Log("Перевод отклонен (недостаточно средств).", LogLevel.Warning);
+        else Logger.Log($"Перевод выполнен на карту {toCardNumber} на сумму {amount:C}");
         return ok;
     }
 
     public bool ChangePin(CardData cardData, Pin oldPin, Pin newPin)
     {
+        Logger.Log("Запрос на смену PIN...");
         var ok = _bankingService.ChangePin(cardData, oldPin, newPin);
         _operationJournal.Add(OperationEntry.Create("CHANGE_PIN", ok ? OperationStatus.Success : OperationStatus.Failed, cardData.CardNumber, _currentSession?.AccountId.Value, null, ok ? "PIN изменен" : "Смена PIN отклонена"));
+        Logger.Log(ok ? "PIN успешно изменен." : "Смена PIN отклонена.", ok ? LogLevel.Info : LogLevel.Warning);
         return ok;
     }
 

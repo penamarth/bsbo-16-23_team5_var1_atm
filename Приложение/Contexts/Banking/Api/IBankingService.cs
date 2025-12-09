@@ -1,5 +1,4 @@
 using ATM.Kernel.Models;
-using ATM.Kernel.Models;
 
 namespace ATM.Contexts.Banking;
 

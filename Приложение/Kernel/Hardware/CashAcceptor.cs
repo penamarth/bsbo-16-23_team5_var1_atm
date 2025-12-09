@@ -5,13 +5,6 @@ namespace ATM.Kernel.Hardware;
 public class CashAcceptor {
     private decimal _totalAmount;
 
-    public decimal AcceptCash() {
-        Logger.Log("Вставьте купюры...");
-        Console.Write("Введите сумму внесенных средств: ");
-        string? input = Console.ReadLine();
-        return AcceptCashInternal(input);
-    }
-
     public decimal AcceptCash(decimal predefinedAmount)
     {
         return AcceptCashInternal(predefinedAmount.ToString());

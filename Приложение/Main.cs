@@ -7,6 +7,8 @@ using ATM.Kernel.Storage;
 using ATM.Kernel.Models;
 using ATM.Contexts.Maintenance;
 
+void LogScenario(string title) => Logger.Log($"---------------- {title} ----------------");
+
 Logger.Log("Запуск системы...");
 
 var storage = new LocalStorage();
@@ -39,29 +41,37 @@ if (session is not null)
     var activeSession = session.Value;
     
     // Прецедент: Проверить баланс
+    LogScenario("Прецедент: Проверить баланс");
     controller.CheckBalance(activeSession);
 
     // Прецедент: Внесение наличных
+    LogScenario("Прецедент: Внесение наличных");
     controller.Deposit(activeSession, 5000m);
 
     // Прецедент: Снять наличные
+    LogScenario("Прецедент: Снять наличные");
     controller.Withdraw(activeSession, 3000m);
 
     // Прецедент: Перевод средств
+    LogScenario("Прецедент: Перевод средств");
     controller.Transfer(activeSession, "9876-5432-1098-7654", 1200m);
 
     // Прецедент: Смена PIN-кода
+    LogScenario("Прецедент: Смена PIN-кода");
     controller.ChangePin(activeSession.Card, pin, new Pin("4321"));
 
     // Повторная проверка баланса после операций
+    LogScenario("Прецедент: Проверить баланс (повтор)");
     controller.CheckBalance(activeSession);
 
     // Завершение сессии
+    LogScenario("Прецедент: Завершение сессии");
     controller.EndSession(activeSession.Card.CardNumber);
 }
 
 // Прецедент: Техническое обслуживание (пример)
 var serviceCode = "9999";
+LogScenario("Прецедент: Техническое обслуживание");
 if (maintenanceController.AuthenticateCollector(serviceCode))
 {
     maintenanceController.RefillDispenser(10_000m);

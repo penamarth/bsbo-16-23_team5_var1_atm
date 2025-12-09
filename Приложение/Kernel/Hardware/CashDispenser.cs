@@ -12,7 +12,14 @@ public class CashDispenser {
 
     public decimal Remaining => _remaining;
 
-    public bool CanDispense(decimal amount) => amount > 0 && amount <= _remaining;
+    public bool CanDispense(decimal amount)
+    {
+        var can = amount > 0 && amount <= _remaining;
+        Logger.Log(
+            $"Проверка возможности выдать {amount:C}. Доступно: {_remaining:C}. Результат: {(can ? "достаточно" : "недостаточно")}",
+            can ? LogLevel.Info : LogLevel.Warning);
+        return can;
+    }
 
     public void Refill(decimal amount) {
         if (amount <= 0) return;

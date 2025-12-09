@@ -23,17 +23,28 @@ else
         Controller --> Client: false
     else Одобрено
         Controller -> Dispenser: TryDispense(amount)
-        Dispenser --> Controller: dispensed?
-
-        alt Выдано успешно
-            Controller -> Journal: Add(WITHDRAWAL, Success, "Остаток: " + Dispenser.Remaining)
-            opt Печать чека (внешний сценарий)
-                Controller -> Printer: PrintReceipt("Withdraw " + amount)
-            end
-            Controller --> Client: true
-        else Ошибка диспенсера
-            Controller -> Journal: Add(WITHDRAWAL, Failed, "Ошибка диспенсера")
+        activate Dispenser
+        Dispenser -> Dispenser: CanDispense(amount)\n(повторная проверка)
+        alt Недостаточно (внутри TryDispense)
+            Dispenser --> Controller: false
+            deactivate Dispenser
+            Controller -> Journal: Add(WITHDRAWAL, Failed, "В банкомате нет нужной суммы")
             Controller --> Client: false
+        else Достаточно
+            Dispenser -> Dispenser: DispenseCash(amount)
+            Dispenser --> Controller: true
+            deactivate Dispenser
+
+            alt Выдано успешно
+                Controller -> Journal: Add(WITHDRAWAL, Success, "Остаток: " + Dispenser.Remaining)
+                opt Печать чека (внешний сценарий)
+                    Controller -> Printer: PrintReceipt("Withdraw " + amount)
+                end
+                Controller --> Client: true
+            else Ошибка диспенсера
+                Controller -> Journal: Add(WITHDRAWAL, Failed, "Ошибка диспенсера")
+                Controller --> Client: false
+            end
         end
     end
 end
